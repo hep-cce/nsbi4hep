@@ -44,15 +44,15 @@ def build_dataset(x_arr, param_values, signal_probabilities, background_probabil
         if not non_prm:
             inputs = tf.concat([x_arr, tf.ones(x_arr.shape[0])[:,tf.newaxis]*param], axis=1)
             targets = ratios/(1+ratios)
-            weights = tf.cast(weights, tf.float32)
+            sample_weights = tf.cast(weights, tf.float32)[:,tf.newaxis]
 
-            data.append(tf.concat([inputs, targets, weights], axis=1))
+            data.append(tf.concat([inputs, targets, sample_weights], axis=1))
         else:
             inputs = x_arr
             targets = ratios/(1+ratios)
-            weights = tf.cast(weights, tf.float32)
+            sample_weights = tf.cast(weights, tf.float32)[:,tf.newaxis]
 
-            data.append(tf.concat([inputs, targets, weights], axis=1))
+            data.append(tf.concat([inputs, targets, sample_weights], axis=1))
 
     data = tf.reshape(tf.convert_to_tensor(data), (tf.convert_to_tensor(data).shape[0]*tf.convert_to_tensor(data).shape[1], tf.convert_to_tensor(data).shape[2]))
 
