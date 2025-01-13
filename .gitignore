@@ -13,4 +13,7 @@ venv/
 *.tf/
 *.slurm
 *.config
-execute.py
+jobs/carl/
+jobs/rolr/
+jobs/rolypoly/
+jobs/alice/
