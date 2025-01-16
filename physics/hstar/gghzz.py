@@ -1,5 +1,7 @@
 import pandas as pd
 
+from sklearn.model_selection import train_test_split
+
 from ..simulation import mcfm
 
 class Events():
@@ -29,15 +31,35 @@ class Events():
 
     return events
   
-  def sample(self, frac=1.0, random_state=None):
-    events = Events()
+  def split(self, train=0.5, validation=0.5, test=None):
+    if test is not None:
+      if train + validation + test <= 1.0:
+        split_1_kin, kinematics_test, split_1_comp, components_test, split_1_wt, weights_test = train_test_split(self.kinematics, self.components, self.weights, test_size=test, train_size=train+validation, shuffle=False)
+        kinematics_train, kinematics_val, components_train, components_val, weights_train, weights_val = train_test_split(split_1_kin, split_1_comp, split_1_wt, test_size=validation, train_size=train, shuffle=False)
 
-    events.kinematics = self.kinematics.sample(frac=frac, random_state=random_state, ignore_index=True)
-    events.components = self.components.sample(frac=frac, random_state=random_state, ignore_index=True)
-    events.weights = self.weights.sample(frac=frac, random_state=random_state, ignore_index=True)
-    events.probabilities = events.weights/events.weights.sum()
+        events_test = Events()
+        events_test.kinematics = kinematics_test
+        events_test.components = components_test
+        events_test.weights = weights_test
+        events_train.probabilities = weights_test/weights_test.sum()
+      else:
+        raise ValueError('Train, validation and test fractions must add up to 1.0')
+    else:
+      if train + validation <= 1.0:
+        kinematics_train, kinematics_val, components_train, components_val, weights_train, weights_val = train_test_split(self.kinematics, self.components, self.weights, test_size=validation, train_size=train, shuffle=False)
+      else:
+        raise ValueError('Train and validation fractions have must add up to 1.0')
 
-    return events
+    events_train, events_val = Events(), Events()
+    events_train.kinematics, events_val.kinematics = kinematics_train, kinematics_val
+    events_train.components, events_val.components = components_train, components_val
+    events_train.weights, events_val.weights = weights_train, weights_val
+    events_train.probabilities, events_val.probabilities = weights_train/weights_train.sum(), weights_val/weights_val.sum()
+
+    if test is not None:
+      return events_train, events_val, events_test
+    else:
+      return events_train, events_val
 
   def __getitem__(self, item):
     events = Events()
