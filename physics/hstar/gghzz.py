@@ -11,15 +11,31 @@ class Events():
     self.weights = None
     self.probabilities = None
 
-  def filter(self, obj_instance):
-    indices, output = obj_instance.filter(self.kinematics, self.components, self.weights, self.probabilities)
+  def calculate(self, calculator):
+    events = Events()
+    events.kinematics = self.kinematics
+    events.components = self.components
+    events.weights = self.weights
+    events.probabilities = self.probabilities
 
-    self.kinematics = self.kinematics.take(indices)
-    self.components = self.components.take(indices)
-    self.weights = self.weights.take(indices)
-    self.probabilities = self.weights/self.weights.sum()
+    new_columns = calculator(events.kinematics)
 
-    return output
+    for column_name, column_series in new_columns.items():
+      events.kinematics[column_name] = column_series
+
+    return events
+
+  def filter(self, filter):
+    indices = filter(self.kinematics, self.components, self.weights, self.probabilities)
+
+    events = Events()
+
+    events.kinematics = self.kinematics.take(indices)
+    events.components = self.components.take(indices)
+    events.weights = self.weights.take(indices)
+    events.probabilities = events.weights/events.weights.sum()
+
+    return events
 
   def shuffle(self, random_state=None):
     events = Events()
@@ -31,24 +47,27 @@ class Events():
 
     return events
   
-  def split(self, train=0.5, validation=0.5, test=None):
-    if test is not None:
-      if train + validation + test <= 1.0:
-        split_1_kin, kinematics_test, split_1_comp, components_test, split_1_wt, weights_test = train_test_split(self.kinematics, self.components, self.weights, test_size=test, train_size=train+validation, shuffle=False)
-        kinematics_train, kinematics_val, components_train, components_val, weights_train, weights_val = train_test_split(split_1_kin, split_1_comp, split_1_wt, test_size=validation, train_size=train, shuffle=False)
+  def split(self, training=1, validation=1, testing=None):
+    if testing is not None:
+      total = training + validation + testing
+      training /= total
+      validation /= total
+      testing /= total
+        
+      split_1_kin, kinematics_test, split_1_comp, components_test, split_1_wt, weights_test = train_test_split(self.kinematics, self.components, self.weights, test_size=testing, train_size=training+validation, shuffle=False)
+      kinematics_train, kinematics_val, components_train, components_val, weights_train, weights_val = train_test_split(split_1_kin, split_1_comp, split_1_wt, test_size=validation, train_size=training, shuffle=False)
 
-        events_test = Events()
-        events_test.kinematics = kinematics_test
-        events_test.components = components_test
-        events_test.weights = weights_test
-        events_train.probabilities = weights_test/weights_test.sum()
-      else:
-        raise ValueError('Train, validation and test fractions must add up to 1.0')
+      events_test = Events()
+      events_test.kinematics = kinematics_test
+      events_test.components = components_test
+      events_test.weights = weights_test
+      events_train.probabilities = weights_test/weights_test.sum()
     else:
-      if train + validation <= 1.0:
-        kinematics_train, kinematics_val, components_train, components_val, weights_train, weights_val = train_test_split(self.kinematics, self.components, self.weights, test_size=validation, train_size=train, shuffle=False)
-      else:
-        raise ValueError('Train and validation fractions have must add up to 1.0')
+      total = training + validation
+      training /= total
+      validation /= total
+
+      kinematics_train, kinematics_val, components_train, components_val, weights_train, weights_val = train_test_split(self.kinematics, self.components, self.weights, test_size=validation, train_size=training, shuffle=False)
 
     events_train, events_val = Events(), Events()
     events_train.kinematics, events_val.kinematics = kinematics_train, kinematics_val
@@ -56,7 +75,7 @@ class Events():
     events_train.weights, events_val.weights = weights_train, weights_val
     events_train.probabilities, events_val.probabilities = weights_train/weights_train.sum(), weights_val/weights_val.sum()
 
-    if test is not None:
+    if testing is not None:
       return events_train, events_val, events_test
     else:
       return events_train, events_val
