@@ -106,24 +106,33 @@ def build(config, seed, strategy=None):
 
     if component_1 != msq.Component.BKG:
         c6_mod = c6.Modifier(baseline = component_1, sample=sample_2, c6_values = [-5,-1,0,1,5])
-        _, sig_prob = c6_mod.modify(c6=config['c6_values'])
+        sig_wt, sig_prob = c6_mod.modify(c6=config['c6_values'])
     else:
-        _, sig_prob = np.array(sample_2.events.weights)[:,np.newaxis], np.array(sample_2.events.probabilities)[:,np.newaxis]
+        sig_wt, sig_prob = np.array(sample_2.events.weights)[:,np.newaxis], np.array(sample_2.events.probabilities)[:,np.newaxis]
     
     if component_1 == msq.Component.INT: #TODO: Fix this somehow
         c6_mod = c6.Modifier(baseline = component_1, sample=sample_2, c6_values = [-5,0,5])
-        _, sig_prob = c6_mod.modify(c6=config['c6_values'])
+        sig_wt, sig_prob = c6_mod.modify(c6=config['c6_values'])
+
+
+    # Renormalize probabilities after splitting the sample into training and validation
+    sig_prob_train = sig_wt[:int(true_size_2/2)]/np.sum(sig_wt[:int(true_size_2/2)])
+    bkg_prob_train = np.array(sample_2.events.weights)[:int(true_size_2/2)]/np.sum(np.array(sample_2.events.weights)[:int(true_size_2/2)])
+
+    sig_prob_val = sig_wt[int(true_size_2/2):]/np.sum(sig_wt[int(true_size_2/2):])
+    bkg_prob_val = np.array(sample_2.events.weights)[int(true_size_2/2):]/np.sum(np.array(sample_2.events.weights)[int(true_size_2/2):])
+
 
     train_data = build_dataset(x_arr = kin_vars_2[:int(true_size_2/2)], 
                                param_values = config['c6_values'],
-                               signal_probabilities = sig_prob[:int(true_size_2/2)],
-                               background_probabilities = np.array(sample_2.events.probabilities)[:int(true_size_2/2)],
+                               signal_probabilities = sig_prob_train,
+                               background_probabilities = bkg_prob_train,
                                weights = np.array(sample_2.events.weights)[:int(true_size_2/2)])
     
     val_data = build_dataset(x_arr = kin_vars_2[int(true_size_2/2):],
                              param_values = config['c6_values'],
-                             signal_probabilities = sig_prob[int(true_size_2/2):],
-                             background_probabilities = np.array(sample_2.events.probabilities)[int(true_size_2/2):],
+                             signal_probabilities = sig_prob_val,
+                             background_probabilities = bkg_prob_val,
                              weights = np.array(sample_2.events.weights)[int(true_size_2/2):])
     
     # The following will scale only kinematics for nonprm and kinematics + c6 for prm
