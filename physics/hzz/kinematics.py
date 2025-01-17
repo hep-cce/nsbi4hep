@@ -124,7 +124,7 @@ class FourLeptonSystem():
         return pd.Series((leptons[0]+leptons[1]+leptons[2]+leptons[3]).rapidity)
     
     def calc_pT(self, *leptons: MomentumObject4D):
-        return pd.Series((leptons[0]+leptons[1]+leptons[2]+leptons[3]).pT)
+        return pd.Series((leptons[0]+leptons[1]+leptons[2]+leptons[3]).pt)
 
 
 class M4l():

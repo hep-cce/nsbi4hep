@@ -6,10 +6,7 @@ import pandas as pd
 from ..hstar import gghzz
 
 class ZPairCandidate:
-    def __init__(self, bounds1: tuple[int, int] = None, bounds2: tuple[int, int] = None, algorithm: str = 'leastsquare'):
-        self.bounds1 = bounds1
-        self.bounds2 = bounds2
-
+    def __init__(self, algorithm: str = 'leastsquare'):
         if algorithm not in ['leastsquare', 'closest', 'truth']:
             raise ValueError('algorithm has to be one of ["leastsquare", "closest", "truth"]')
 

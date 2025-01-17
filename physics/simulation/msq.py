@@ -12,6 +12,6 @@ class MSQFilter():
     self.component = component
     self.value = value
 
-  def filter(self, kinematics, components, weights, probabilities):
+  def __call__(self, kinematics, components, weights, probabilities):
     indices = np.where(np.array(components[self.component])!=self.value)[0]
-    return indices, None
+    return indices
