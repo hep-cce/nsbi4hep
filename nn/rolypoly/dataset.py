@@ -1,6 +1,6 @@
 from physics.simulation import msq
 from physics.hstar import gghzz, c6
-from physics.hzz import angles, zpair
+from physics.hzz import kinematics, zpair
 
 import os
 import json
@@ -50,42 +50,43 @@ def load_sample(config, component):
 
     return match_comp(config, component, n_i)
 
-def load_kinematics(sample, bounds1=(70,115), bounds2=(70,115), algorithm='leastsquare'):
-    z_chooser = zpair.ZPairChooser(bounds1=bounds1, bounds2=bounds2, algorithm=algorithm)
-
-    # calculate_2 uses y4l as additional kinematic
-    return angles.calculate_2(*sample.events.filter(z_chooser))
-
 def build(config, seed, strategy=None):
     component = get_component(config)
 
     sample = load_sample(config, component)
 
-    set_size = sample.events.kinematics.shape[0]
+    int_null_filter = msq.MSQFilter('msq_int_sm', value=0.0)
+    int_nan_filter = msq.MSQFilter('msq_int_sm', value=np.nan)
 
-    sample.events.filter(msq.MSQFilter('msq_int_sm', value=0.0))
-    sample.events.filter(msq.MSQFilter('msq_int_sm', value=np.nan))
+    z_candidate = zpair.ZPairCandidate(algorithm='leastsquare')
+    z_masses = zpair.ZMasses(bounds1 = (70,115), bounds2 = (70,115))
 
-    kin_vars = load_kinematics(sample)
+    angles = kinematics.AngularVariables()
+    four_lepton = kinematics.FourLeptonSystem()
 
-    sample.events = sample.events[:int(config['num_events'])]
-    kin_vars = kin_vars[:int(config['num_events'])]
+    events_training, events_validation = sample.events.filter(int_null_filter).filter(int_nan_filter).calculate(z_candidate).filter(z_masses).calculate(angles).calculate(four_lepton)[:int(config['num_events'])].shuffle(random_state=seed).split(training=0.5, validation=0.5)
 
-    true_size = kin_vars.shape[0]
+    kin_vars = ['cth_star', 'cth_1', 'cth_2', 'phi_1', 'phi', 'Z1_mass', 'Z2_mass', '4l_mass', '4l_rapidity']
 
-    print(f'Initial base size of {["SIG", "INT", "BKG", "SBI"][component.value-1]}(SM) set to {int(set_size)}. Train and validation data will be {int(true_size/2)} each after Z mass cuts.')
-    print(f'Total dataset size after filters (per train, val): {int(true_size/2)}')
+    kinematics_training = events_training.kinematics[kin_vars].to_numpy()
+    kinematics_validation = events_validation.kinematics[kin_vars].to_numpy()
 
-    c6_mod = c6.Modifier(baseline = component, sample=sample, c6_values = [-5,-1,0,1,5]) if component != msq.Component.INT else c6.Modifier(baseline = component, sample=sample, c6_values = [-1,0,1])
-    coeff = c6_mod.coefficients[:, config['coeff']]
+    print(f'Initial base size of {["SIG", "INT", "BKG", "SBI"][component.value-1]}(SM) set to {sample.events.kinematics.shape[0]}.')
+    print(f'Dataset size after splitting: training={events_training.kinematics.shape[0]}, validation={events_validation.kinematics.shape[0]}')
 
-    train_data = build_dataset(x_arr = kin_vars[:int(true_size/2)],
-                               target = coeff[:int(true_size/2)],
-                               weights = sample.events[:int(true_size/2)].probabilities)
+    c6_mod_training = c6.Modifier(baseline = component, events=events_training, c6_values = [-5,-1,0,1,5]) if component != msq.Component.INT else c6.Modifier(baseline = component, sample=sample, c6_values = [-5,0,5])
+    coeff_training = c6_mod_training.coefficients[:, config['coeff']]
+
+    c6_mod_validation = c6.Modifier(baseline = component, events=events_validation, c6_values = [-5,-1,0,1,5]) if component != msq.Component.INT else c6.Modifier(baseline = component, sample=sample, c6_values = [-5,0,5])
+    coeff_validation = c6_mod_validation.coefficients[:, config['coeff']]
+
+    train_data = build_dataset(x_arr = kinematics_training,
+                               target = coeff_training,
+                               weights = events_training.weights)
     
-    val_data = build_dataset(x_arr = kin_vars[int(true_size/2):],
-                             target = coeff[int(true_size/2):],
-                             weights = sample.events[int(true_size/2):].probabilities)
+    val_data = build_dataset(x_arr = kinematics_validation,
+                             target = coeff_validation,
+                             weights = events_validation.weights)
     
     # The following will scale only kinematics for nonprm and kinematics + c6 for prm
     train_scaler = MinMaxScaler()

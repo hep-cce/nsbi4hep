@@ -47,10 +47,7 @@ class ALICE_reg(keras.Model):
 def build(config, strategy=None):
     if 'distributed' in config['flags'] and strategy is not None:
         with strategy.scope():
-            if len(config['c6_values']) == 1:
-                model = ALICE_reg(num_layers=config['num_layers'], num_nodes=config['num_nodes'], input_dim=9)
-            else:
-                model = ALICE_reg(num_layers=config['num_layers'], num_nodes=config['num_nodes'], input_dim=10)
+            model = ALICE_reg(num_layers=config['num_layers'], num_nodes=config['num_nodes'], input_dim=9)
 
             optimizer = keras.optimizers.Nadam(
                 learning_rate=config['learning_rate'],
@@ -61,10 +58,7 @@ def build(config, strategy=None):
 
             model.compile(optimizer=optimizer, loss=ALICE_loss, weighted_metrics=[])
     else:
-        if len(config['c6_values']) == 1:
-            model = ALICE_reg(num_layers=config['num_layers'], num_nodes=config['num_nodes'], input_dim=9)
-        else:
-            model = ALICE_reg(num_layers=config['num_layers'], num_nodes=config['num_nodes'], input_dim=10)
+        model = ALICE_reg(num_layers=config['num_layers'], num_nodes=config['num_nodes'], input_dim=9)
 
         optimizer = keras.optimizers.Nadam(
             learning_rate=config['learning_rate'],
