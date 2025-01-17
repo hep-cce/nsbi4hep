@@ -59,7 +59,7 @@ def build(config, strategy=None):
                 epsilon=1e-07
             )
 
-            model.compile(optimizer=optimizer, loss=ALICE_loss)
+            model.compile(optimizer=optimizer, loss=ALICE_loss, weighted_metrics=[])
     else:
         if len(config['c6_values']) == 1:
             model = ALICE_reg(num_layers=config['num_layers'], num_nodes=config['num_nodes'], input_dim=9)
@@ -73,7 +73,7 @@ def build(config, strategy=None):
             epsilon=1e-07
         )
 
-        model.compile(optimizer=optimizer, loss=ALICE_loss)
+        model.compile(optimizer=optimizer, loss=ALICE_loss, weighted_metrics=[])
     
     return model
 

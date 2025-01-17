@@ -1,6 +1,6 @@
 from physics.simulation import msq
 from physics.hstar import gghzz, c6
-from physics.hzz import angles, zpair
+from physics.hzz import kinematics, zpair
 
 import os
 import json
@@ -22,39 +22,19 @@ def get_components(config):
 
     return (comp_dict[component_1], comp_dict[component_2])
 
-def build_dataset(x_arr, param_values, signal_probabilities, background_probabilities, weights):
+def build_dataset(x_arr, signal_probabilities, background_probabilities, weights):
     data = []
 
-    signal_probabilities = tf.convert_to_tensor(signal_probabilities)
-    background_probabilities = tf.convert_to_tensor(background_probabilities)
+    signal_probabilities = tf.cast(signal_probabilities, tf.float32)
+    background_probabilities = tf.cast(background_probabilities, tf.float32)
 
-    non_prm=False
+    ratios = signal_probabilities[:,tf.newaxis]/background_probabilities[:,tf.newaxis]
 
-    if np.isscalar(param_values):
-        param_values = [param_values]
-        non_prm=True
-    elif len(param_values) == 1:
-        non_prm=True
+    inputs = x_arr
+    targets = ratios/(1+ratios)
+    sample_weights = tf.cast(weights, tf.float32)[:,tf.newaxis]
 
-    for i in range(len(param_values)):
-        param = param_values[i]
-        # x | param | y | weight
-        ratios = tf.cast(signal_probabilities[:,i][:,tf.newaxis]/background_probabilities[:,tf.newaxis], tf.float32)
-
-        if not non_prm:
-            inputs = tf.concat([x_arr, tf.ones(x_arr.shape[0])[:,tf.newaxis]*param], axis=1)
-            targets = ratios/(1+ratios)
-            sample_weights = tf.cast(weights, tf.float32)[:,tf.newaxis]
-
-            data.append(tf.concat([inputs, targets, sample_weights], axis=1))
-        else:
-            inputs = x_arr
-            targets = ratios/(1+ratios)
-            sample_weights = tf.cast(weights, tf.float32)[:,tf.newaxis]
-
-            data.append(tf.concat([inputs, targets, sample_weights], axis=1))
-
-    data = tf.reshape(tf.convert_to_tensor(data), (tf.convert_to_tensor(data).shape[0]*tf.convert_to_tensor(data).shape[1], tf.convert_to_tensor(data).shape[2]))
+    data = tf.concat([inputs, targets, sample_weights], axis=1)
 
     return data
 
@@ -78,62 +58,43 @@ def load_sample(config, component):
 
     return match_comp(config, component, n_i)
 
-def load_kinematics(sample, bounds1=(70,115), bounds2=(70,115), algorithm='leastsquare'):
-    z_chooser = zpair.ZPairChooser(bounds1=bounds1, bounds2=bounds2, algorithm=algorithm)
-
-    # calculate_2 uses y4l as additional kinematic
-    return angles.calculate_2(*sample.events.filter(z_chooser))
 
 def build(config, seed, strategy=None):
     component_1, component_2 = get_components(config)
 
-    sample_2 = load_sample(config, component_2)
+    # Sample will be loaded as component_2 (denominator in pdf ratio)
+    # Later reweighted as component_1 to get the numerator probabilities
+    sample = load_sample(config, component_2)
 
-    set_size_2 = sample_2.events.kinematics.shape[0]
+    bkg_null_filter = msq.MSQFilter('msq_bkg_sm', value=0.0)
+    bkg_nan_filter = msq.MSQFilter('msq_bkg_sm', value=np.nan)
 
-    sample_2.events.filter(msq.MSQFilter('msq_bkg_sm', value=0.0))
-    sample_2.events.filter(msq.MSQFilter('msq_bkg_sm', value=np.nan))
+    z_candidate = zpair.ZPairCandidate(algorithm='leastsquare')
+    z_masses = zpair.ZMasses(bounds1 = (70,115), bounds2 = (70,115))
 
-    kin_vars_2 = load_kinematics(sample_2)
+    angles = kinematics.AngularVariables()
+    four_lepton = kinematics.FourLeptonSystem()
 
-    sample_2.events = sample_2.events[:int(config['num_events'])]
-    kin_vars_2 = kin_vars_2[:int(config['num_events'])]
+    events_training, events_validation = sample.events.filter(bkg_null_filter).filter(bkg_nan_filter).calculate(z_candidate).filter(z_masses).calculate(angles).calculate(four_lepton)[:int(config['num_events'])].shuffle(random_state=seed).split(training=0.5, validation=0.5)
+    sig_prob_training, sig_prob_validation = [evt.probabilities for evt in sample[component_1].filter(bkg_null_filter).filter(bkg_nan_filter).calculate(z_candidate).filter(z_masses).calculate(angles).calculate(four_lepton)[:int(config['num_events'])].shuffle(random_state=seed).split(training=0.5, validation=0.5)]
 
-    true_size_2 = kin_vars_2.shape[0]
+    print(f'Initial base size of {["SIG", "INT", "BKG", "SBI"][component_2.value-1]}(SM) set to {int(sample.events.kinematics.shape[0])}.')
+    print(f'Dataset size after splitting: training={events_training.kinematics.shape[0]}, validation={events_validation.kinematics.shape[0]}')
 
-    print(f'Initial base size of {["SIG", "INT", "BKG", "SBI"][component_2.value-1]}(SM) set to {int(set_size_2)}. Train and validation data will be {int(true_size_2/2)} each after Z mass cuts.')
-    print(f'Total dataset size after filters (per train, val): {int(true_size_2/2)}')
+    kin_variables = ['cth_star', 'cth_1', 'cth_2', 'phi_1', 'phi', 'Z1_mass', 'Z2_mass', '4l_mass', '4l_rapidity']
 
-    if component_1 != msq.Component.BKG:
-        c6_mod = c6.Modifier(baseline = component_1, sample=sample_2, c6_values = [-5,-1,0,1,5])
-        sig_wt, sig_prob = c6_mod.modify(c6=config['c6_values'])
-    else:
-        sig_wt, sig_prob = np.array(sample_2.events.weights)[:,np.newaxis], np.array(sample_2.events.probabilities)[:,np.newaxis]
+    kinematics_training = events_training.kinematics[kin_variables].to_numpy()
+    kinematics_validation = events_validation.kinematics[kin_variables].to_numpy()
+
+    train_data = build_dataset(x_arr = kinematics_training,
+                               signal_probabilities = sig_prob_training,
+                               background_probabilities = events_training.probabilities,
+                               weights = events_training.weights)
     
-    if component_1 == msq.Component.INT: #TODO: Fix this somehow
-        c6_mod = c6.Modifier(baseline = component_1, sample=sample_2, c6_values = [-5,0,5])
-        sig_wt, sig_prob = c6_mod.modify(c6=config['c6_values'])
-
-
-    # Renormalize probabilities after splitting the sample into training and validation
-    sig_prob_train = sig_wt[:int(true_size_2/2)]/np.sum(sig_wt[:int(true_size_2/2)])
-    bkg_prob_train = np.array(sample_2.events.weights)[:int(true_size_2/2)]/np.sum(np.array(sample_2.events.weights)[:int(true_size_2/2)])
-
-    sig_prob_val = sig_wt[int(true_size_2/2):]/np.sum(sig_wt[int(true_size_2/2):])
-    bkg_prob_val = np.array(sample_2.events.weights)[int(true_size_2/2):]/np.sum(np.array(sample_2.events.weights)[int(true_size_2/2):])
-
-
-    train_data = build_dataset(x_arr = kin_vars_2[:int(true_size_2/2)], 
-                               param_values = config['c6_values'],
-                               signal_probabilities = sig_prob_train,
-                               background_probabilities = bkg_prob_train,
-                               weights = np.array(sample_2.events.weights)[:int(true_size_2/2)])
-    
-    val_data = build_dataset(x_arr = kin_vars_2[int(true_size_2/2):],
-                             param_values = config['c6_values'],
-                             signal_probabilities = sig_prob_val,
-                             background_probabilities = bkg_prob_val,
-                             weights = np.array(sample_2.events.weights)[int(true_size_2/2):])
+    val_data = build_dataset(x_arr = kinematics_validation,
+                             signal_probabilities = sig_prob_validation,
+                             background_probabilities = events_validation.probabilities,
+                             weights = events_validation.weights)
     
     # The following will scale only kinematics for nonprm and kinematics + c6 for prm
     train_scaler = MinMaxScaler()
