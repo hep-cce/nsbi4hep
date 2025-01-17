@@ -5,14 +5,14 @@ from ..simulation import mcfm
 
 class Modifier():
 
-  def __init__(self, sample, baseline = msq.Component.SBI, c6_values = [-5,-1,0,1,5]):
-    self.sample = sample
+  def __init__(self, baseline, events, c6_values = [-5,-1,0,1,5]):
     self.baseline = baseline
+    self.events = events
+
     self.c6_values = np.array(c6_values)
-    self.c6_components = [mcfm.component_c6[baseline][c6_value] for c6_value in c6_values]
+    self.c6_components = [mcfm.component_c6[self.baseline][c6_value] for c6_value in c6_values]
 
     # solve the polynomial coefficients
-    self.events = self.sample[self.baseline]
     msq_sm = self.events.components[mcfm.component_sm[self.baseline]].to_numpy()
     msq_c6 = np.array([self.events.components[c6_components].to_numpy() for c6_components in self.c6_components]).T
     self.coefficients = np.apply_along_axis(lambda x: np.linalg.solve(np.vander(self.c6_values, len(self.c6_values), increasing=True), x), 1, msq_c6 / msq_sm[:, np.newaxis])
