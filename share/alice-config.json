@@ -6,6 +6,5 @@
     "num_events": 100000,
     "num_layers": 10,
     "num_nodes": 2000,
-    "epochs": 100,
-    "c6_values": "-20,20,11"
+    "epochs": 100
 }
