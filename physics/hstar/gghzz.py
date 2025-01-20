@@ -1,6 +1,7 @@
 import pandas as pd
 
 from sklearn.model_selection import train_test_split
+from sklearn.utils import shuffle
 
 from ..simulation import mcfm
 
@@ -40,9 +41,7 @@ class Events():
   def shuffle(self, random_state=None):
     events = Events()
 
-    events.kinematics = self.kinematics.sample(frac=1.0, random_state=random_state, ignore_index=True)
-    events.components = self.components.sample(frac=1.0, random_state=random_state, ignore_index=True)
-    events.weights = self.weights.sample(frac=1.0, random_state=random_state, ignore_index=True)
+    events.kinematics, events.components, events.weights = shuffle(self.kinematics, self.components, self.weights, random_state=random_state)
     events.probabilities = events.weights/events.weights.sum()
 
     return events
