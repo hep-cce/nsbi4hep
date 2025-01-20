@@ -11,7 +11,7 @@ from sklearn.preprocessing import MinMaxScaler
 
 
 def get_components(config):
-    component_flag = np.array(config['flags'])[np.where([ (flag in ['sig', 'int', 'sig-vs-sbi', 'int-vs-sbi', 'bkg-vs-sbi', 'sbi-vs-sig', 'int-vs-sig', 'bkg-vs-sig']) for flag in config['flags'] ])]
+    component_flag = np.array(config['flags'])[np.where([ (flag in ['sig', 'int', 'sig-vs-sbi', 'int-vs-sbi', 'bkg-vs-sbi', 'sbi-vs-sig', 'int-vs-sig', 'bkg-vs-sig', 'sig-vs-bkg']) for flag in config['flags'] ])]
     component_flag = component_flag[0] if component_flag.shape[0] != 0 else 'sbi'
     component_1, component_2 = component_flag.split('-')[0], component_flag.split('-')[-1]
     
@@ -22,7 +22,7 @@ def get_components(config):
 
     return (comp_dict[component_1], comp_dict[component_2])
 
-def build_dataset(x_arr, signal_probabilities, background_probabilities, weights):
+def build_dataset(x_arr, signal_probabilities, background_probabilities, weights=None):
     data = []
 
     signal_probabilities = tf.cast(signal_probabilities, tf.float32)
@@ -32,11 +32,20 @@ def build_dataset(x_arr, signal_probabilities, background_probabilities, weights
 
     inputs = x_arr
     targets = ratios/(1+ratios)
-    sample_weights = tf.cast(weights, tf.float32)[:,tf.newaxis]
 
-    data = tf.concat([inputs, targets, sample_weights], axis=1)
+    print(inputs.shape)
+    print(targets.shape)
 
-    return data
+    if weights is None:
+        data = tf.concat([inputs, targets], axis=1)
+
+        return data
+    else:
+        sample_weights = tf.cast(weights, tf.float32)[:,tf.newaxis]
+
+        data = tf.concat([inputs, targets, sample_weights], axis=1)
+
+        return data
 
 def load_sample(config, component):
     if config['num_events'] is None:
@@ -88,20 +97,18 @@ def build(config, seed, strategy=None):
 
     train_data = build_dataset(x_arr = kinematics_training,
                                signal_probabilities = sig_prob_training,
-                               background_probabilities = events_training.probabilities,
-                               weights = events_training.weights)
+                               background_probabilities = events_training.probabilities)
     
     val_data = build_dataset(x_arr = kinematics_validation,
                              signal_probabilities = sig_prob_validation,
-                             background_probabilities = events_validation.probabilities,
-                             weights = events_validation.weights)
+                             background_probabilities = events_validation.probabilities)
     
     # The following will scale only kinematics for nonprm and kinematics + c6 for prm
     train_scaler = MinMaxScaler()
-    train_data = tf.concat([train_scaler.fit_transform(train_data[:,:-2]), train_data[:,-2:]], axis=1)
+    train_data = tf.concat([train_scaler.fit_transform(train_data[:,:-1]), train_data[:,-1][:, tf.newaxis]], axis=1)
     train_data = tf.random.shuffle(train_data, seed=seed)
 
-    val_data = tf.concat([train_scaler.transform(val_data[:,:-2]), val_data[:,-2:]], axis=1)
+    val_data = tf.concat([train_scaler.transform(val_data[:,:-1]), val_data[:,-1][:, tf.newaxis]], axis=1)
     val_data = tf.random.shuffle(val_data, seed=seed)
 
     scaler_config = {'scaler.scale_': train_scaler.scale_.tolist(), 'scaler.min_': train_scaler.min_.tolist()}
@@ -109,8 +116,8 @@ def build(config, seed, strategy=None):
         scaler_file.write(json.dumps(scaler_config, indent=4))
 
     # Build tf Dataset objects and batch data
-    train_dataset = tf.data.Dataset.from_tensor_slices((train_data[:,:-2], train_data[:,-2][:,tf.newaxis], train_data[:,-1][:,tf.newaxis]))
-    val_dataset = tf.data.Dataset.from_tensor_slices((val_data[:,:-2], train_data[:,-2][:,tf.newaxis], val_data[:,-1][:,tf.newaxis]))
+    train_dataset = tf.data.Dataset.from_tensor_slices((train_data[:,:-1], train_data[:,-1][:,tf.newaxis]))
+    val_dataset = tf.data.Dataset.from_tensor_slices((val_data[:,:-1], train_data[:,-1][:,tf.newaxis]))
 
     if 'distributed' in config['flags'] and strategy is not None:
         with strategy.scope():
