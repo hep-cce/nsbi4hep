@@ -1,6 +1,6 @@
 from physics.simulation import msq
 from physics.hstar import gghzz, c6
-from physics.hzz import angles, zpair
+from physics.hzz import kinematics, zpair
 
 import os
 import json
@@ -22,62 +22,47 @@ def get_components(config):
 
     return (comp_dict[component_1], comp_dict[component_2])
 
-def build_dataset(x_arr_sig, x_arr_bkg, param_values, signal_probabilities, background_probabilities):
-    data = []
+def build_dataset(x_arr_sig, x_arr_bkg, signal_probabilities, background_probabilities, c6_values=None):
+    if c6_values is None:
+        inputs_sig = tf.cast(x_arr_sig, tf.float32)
+        inputs_bkg = tf.cast(x_arr_bkg, tf.float32)
 
-    non_prm=False
+        targets_sig = tf.ones(x_arr_sig.shape[0])[:, tf.newaxis]
+        targets_bkg = tf.zeros(x_arr_bkg.shape[0])[:, tf.newaxis]
 
-    if np.isscalar(param_values):
-        param_values = [param_values]
-        non_prm=True
-    elif len(param_values) == 1:
-        non_prm=True
+        weights_sig = tf.cast(signal_probabilities, tf.float32)[:, tf.newaxis]
+        weights_bkg = tf.cast(background_probabilities, tf.float32)[:, tf.newaxis]
 
-    for i in range(len(param_values)):
-        param = param_values[i]
-        # x | param | y | weight
-        if not non_prm:
-            if len(x_arr_sig.shape) == 1:
-                data_part_sig = tf.concat([x_arr_sig[:,tf.newaxis], tf.ones(x_arr_sig.shape[0])[:,tf.newaxis]*param, tf.ones(x_arr_sig.shape[0])[:,tf.newaxis]], axis=1)
-            else:
-                data_part_sig = tf.concat([x_arr_sig, tf.ones(x_arr_sig.shape[0])[:,tf.newaxis]*param, tf.ones(x_arr_sig.shape[0])[:,tf.newaxis]], axis=1)
+        data_sig = tf.concat([inputs_sig, targets_sig, weights_sig], axis=1)
+        data_bkg = tf.concat([inputs_bkg, targets_bkg, weights_bkg], axis=1)
 
-            sig_weights = tf.cast(signal_probabilities.T[i][:,tf.newaxis], tf.float32)
-            data_part_sig = tf.concat([data_part_sig, sig_weights], axis=1)
+        data = tf.concat([data_sig, data_bkg], axis=0)
 
+        return data
+    else:
+        data = []
+        for i in range(len(c6_values)):
+            inputs_sig = tf.cast(x_arr_sig, tf.float32)
+            inputs_bkg = tf.cast(x_arr_bkg, tf.float32)
 
-            if len(x_arr_bkg.shape) == 1:
-                data_part_bkg = tf.concat([x_arr_bkg[:,tf.newaxis], tf.ones(x_arr_bkg.shape[0])[:,tf.newaxis]*param, tf.zeros(x_arr_bkg.shape[0])[:,tf.newaxis]], axis=1)
-            else:
-                data_part_bkg = tf.concat([x_arr_bkg, tf.ones(x_arr_bkg.shape[0])[:,tf.newaxis]*param, tf.zeros(x_arr_bkg.shape[0])[:,tf.newaxis]], axis=1)
-            
-            bkg_weights = tf.cast(background_probabilities[:,tf.newaxis], tf.float32)
-            data_part_bkg = tf.concat([data_part_bkg, bkg_weights], axis=1)
+            c6_sig = tf.ones(x_arr_sig.shape[0])[:, tf.newaxis] * c6_values[i]
+            c6_bkg = tf.ones(x_arr_bkg.shape[0])[:, tf.newaxis] * c6_values[i]
 
-            data.append(tf.concat([data_part_sig, data_part_bkg], axis=0))
-        else:
-            if len(x_arr_sig.shape) == 1:
-                data_part_sig = tf.concat([x_arr_sig[:,tf.newaxis], tf.ones(x_arr_sig.shape[0])[:,tf.newaxis]], axis=1)
-            else:
-                data_part_sig = tf.concat([x_arr_sig, tf.ones(x_arr_sig.shape[0])[:,tf.newaxis]], axis=1)
+            targets_sig = tf.ones(x_arr_sig.shape[0])[:, tf.newaxis]
+            targets_bkg = tf.zeros(x_arr_bkg.shape[0])[:, tf.newaxis]
 
-            sig_weights = tf.cast(signal_probabilities.T[i][:,tf.newaxis], tf.float32)
-            data_part_sig = tf.concat([data_part_sig, sig_weights], axis=1)
+            weights_sig = tf.cast(signal_probabilities[:, i], tf.float32)[:, tf.newaxis]
+            weights_bkg = tf.cast(background_probabilities, tf.float32)[:, tf.newaxis]
 
+            data_sig = tf.concat([inputs_sig, c6_sig, targets_sig, weights_sig], axis=1)
+            data_bkg = tf.concat([inputs_bkg, c6_bkg, targets_bkg, weights_bkg], axis=1)
 
-            if len(x_arr_bkg.shape) == 1:
-                data_part_bkg = tf.concat([x_arr_bkg[:,tf.newaxis], tf.zeros(x_arr_bkg.shape[0])[:,tf.newaxis]], axis=1)
-            else:
-                data_part_bkg = tf.concat([x_arr_bkg, tf.zeros(x_arr_bkg.shape[0])[:,tf.newaxis]], axis=1)
-            
-            bkg_weights = tf.cast(background_probabilities[:,tf.newaxis], tf.float32)
-            data_part_bkg = tf.concat([data_part_bkg, bkg_weights], axis=1)
+            data.append(tf.concat([data_sig, data_bkg], axis=0))
 
-            data.append(tf.concat([data_part_sig, data_part_bkg], axis=0))
+        data = tf.convert_to_tensor(data)
+        data = tf.reshape(data, shape=(data.shape[0]*data.shape[1], data.shape[2]))
 
-    data = tf.reshape(tf.convert_to_tensor(data), (tf.convert_to_tensor(data).shape[0]*tf.convert_to_tensor(data).shape[1], tf.convert_to_tensor(data).shape[2]))
-
-    return data
+        return data    
 
 def load_samples(config, component_1, component_2):
     if config['num_events'] is None:
@@ -99,59 +84,56 @@ def load_samples(config, component_1, component_2):
 
     return (match_comp(config, component_1, n_i), match_comp(config, component_2, n_i))
 
-def load_kinematics(sample, bounds1=(70,115), bounds2=(70,115), algorithm='leastsquare'):
-    z_chooser = zpair.ZPairChooser(bounds1=bounds1, bounds2=bounds2, algorithm=algorithm)
-
-    return angles.calculate(*sample.events.filter(z_chooser))
-
 def build(config, seed, strategy=None):
     component_1, component_2 = get_components(config)
+    c6_given = 'c6_values' in config
 
-    sample_1, sample_2 = load_samples(config, component_1, component_2)
+    sample_sig, sample_bkg = load_samples(component_1=component_1, component_2=component_2, config=config)
 
-    set_size_1, set_size_2 = sample_1.events.kinematics.shape[0], sample_2.events.kinematics.shape[0]
+    int_null_filter = msq.MSQFilter('msq_int_sm', value=0.0)
+    int_nan_filter = msq.MSQFilter('msq_int_sm', value=np.nan)
 
-    sample_1.events.filter(msq.MSQFilter('msq_bkg_sm', value=0.0))
-    sample_1.events.filter(msq.MSQFilter('msq_bkg_sm', value=np.nan))
-    sample_2.events.filter(msq.MSQFilter('msq_bkg_sm', value=0.0))
-    sample_2.events.filter(msq.MSQFilter('msq_bkg_sm', value=np.nan))
+    z_candidate = zpair.ZPairCandidate(algorithm='leastsquare')
+    z_masses = zpair.ZMasses(bounds1 = (70,115), bounds2 = (70,115))
 
-    kin_vars_1, kin_vars_2 = load_kinematics(sample_1), load_kinematics(sample_2)
+    angles = kinematics.AngularVariables()
+    four_lepton = kinematics.FourLeptonSystem()
 
-    sample_1.events = sample_1.events[:int(config['num_events'])]
-    kin_vars_1 = kin_vars_1[:int(config['num_events'])]
+    events_training_sig, events_validation_sig = sample_sig.events.filter(int_null_filter).filter(int_nan_filter).calculate(z_candidate).filter(z_masses).calculate(angles).calculate(four_lepton)[:config['num_events']].shuffle(random_state=seed).split(training=0.5, validation=0.5)
+    events_training_bkg, events_validation_bkg = sample_bkg.events.filter(int_null_filter).filter(int_nan_filter).calculate(z_candidate).filter(z_masses).calculate(angles).calculate(four_lepton)[:config['num_events']].shuffle(random_state=seed).split(training=0.5, validation=0.5)
 
-    sample_2.events = sample_2.events[:int(config['num_events'])]
-    kin_vars_2 = kin_vars_2[:int(config['num_events'])]
+    print(f'Building dataset for {["SIG", "INT", "BKG", "SBI"][component_1.value-1]}({"SM" if not c6_given else "c6"}) vs {["SIG", "INT", "BKG", "SBI"][component_2.value-1]}(SM).')
+    print(f'Getting {int(sample_sig.events.kinematics.shape[0])} events from {["SIG", "INT", "BKG", "SBI"][component_1.value-1]}({"SM" if not c6_given else "c6"}).')
+    print(f'Getting {int(sample_bkg.events.kinematics.shape[0])} events from {["SIG", "INT", "BKG", "SBI"][component_2.value-1]}(SM).')
+    print(f'Dataset size after filtering and splitting: training={events_training_sig.kinematics.shape[0]+events_training_bkg.kinematics.shape[0]}, validation={events_validation_sig.kinematics.shape[0]+events_validation_bkg.kinematics.shape[0]}')
 
-    true_size_1, true_size_2 = kin_vars_1.shape[0], kin_vars_2.shape[0]
+    kin_variables = ['cth_star', 'cth_1', 'cth_2', 'phi_1', 'phi', 'Z1_mass', 'Z2_mass', '4l_mass', '4l_rapidity']
 
-    print(f'Initial base size of {["SIG", "INT", "BKG", "SBI"][component_1.value-1]} set to {int(set_size_1)}. Train and validation data will be {int(true_size_1/2)*2} each after Z mass cuts.')
-    print(f'Initial base size of {["SIG", "INT", "BKG", "SBI"][component_2.value-1]} set to {int(set_size_2)}. Train and validation data will be {int(true_size_2/2)*2} each after Z mass cuts.')
-    print(f'Total dataset size after filters (per train, val): {int(true_size_1/2) + int(true_size_2/2)}')
+    kinematics_training_sig = events_training_sig.kinematics[kin_variables].to_numpy()
+    kinematics_validation_sig = events_validation_sig.kinematics[kin_variables].to_numpy()
 
-    if component_1 != msq.Component.BKG:
-        c6_mod = c6.Modifier(baseline = component_1, c6_values = [-5,-1,0,1,5])
-        sig_weights, sig_prob = c6_mod.modify(sample=sample_1, c6=config['c6_values'])
-    else:
-        sig_weights, sig_prob = np.array(sample_1.events.weights)[:,np.newaxis], np.array(sample_1.events.probabilities)[:,np.newaxis]
-    
-    if component_1 == msq.Component.INT: # TODO: Fix this somehow
-        c6_mod = c6.Modifier(baseline = component_1, c6_values = [-5,0,5])
-        sig_weights, sig_prob = c6_mod.modify(sample=sample_1, c6=config['c6_values'])
-        sig_weights, sig_prob = -1 * sig_weights, -1 * sig_prob
+    kinematics_training_bkg = events_training_bkg.kinematics[kin_variables].to_numpy()
+    kinematics_validation_bkg = events_validation_bkg.kinematics[kin_variables].to_numpy()
 
-    train_data = build_dataset(x_arr_sig = kin_vars_1[:int(true_size_1/2)], 
-                               x_arr_bkg = kin_vars_2[:int(true_size_2/2)], 
-                               param_values = config['c6_values'],
-                               signal_probabilities = sig_prob[:int(true_size_1/2)],
-                               background_probabilities = np.array(sample_2.events.probabilities)[:int(true_size_2/2)])
-    
-    val_data = build_dataset(x_arr_sig = kin_vars_1[int(true_size_1/2):],
-                             x_arr_bkg = kin_vars_2[int(true_size_2/2):],
-                             param_values = config['c6_values'],
-                             signal_probabilities = sig_prob[int(true_size_1/2):],
-                             background_probabilities = np.array(sample_2.events.probabilities)[int(true_size_2/2):])
+    if c6_given:
+        c6_mod_training = c6.Modifier(baseline=component_1, events=events_training_sig, c6_values=[-5,-1,0,1,5])
+        _, sig_probabilities_training = c6_mod_training.modify(c6=config['c6_values'])
+
+        c6_mod_validation = c6.Modifier(baseline=component_1, events=events_validation_sig, c6_values=[-5,-1,0,1,5])
+        _, sig_probabilities_validation = c6_mod_validation.modify(c6=config['c6_values'])
+
+
+    train_data = build_dataset(x_arr_sig = kinematics_training_sig,
+                               x_arr_bkg = kinematics_training_bkg,
+                               signal_probabilities = sig_probabilities_training,
+                               background_probabilities = events_training_bkg.probabilities,
+                               c6_values = config['c6_values'] if c6_given else None)
+        
+    val_data = build_dataset(x_arr_sig = kinematics_validation_sig,
+                             x_arr_bkg = kinematics_validation_bkg,
+                             signal_probabilities = sig_probabilities_validation,
+                             background_probabilities = events_validation_bkg.probabilities,
+                             c6_values = config['c6_values'] if c6_given else None)
     
     # The following will scale only kinematics for nonprm and kinematics + c6 for prm
     train_scaler = MinMaxScaler()
@@ -161,7 +143,7 @@ def build(config, seed, strategy=None):
     val_data = tf.concat([train_scaler.transform(val_data[:,:-2]), val_data[:,-2:]], axis=1)
     val_data = tf.random.shuffle(val_data, seed=seed)
 
-    scaler_config = {'scaler.scale_': train_scaler.scale_, 'scaler.min_': train_scaler.min_}
+    scaler_config = {'scaler.scale_': train_scaler.scale_.tolist(), 'scaler.min_': train_scaler.min_.tolist()}
     with open('scaler.json', 'w') as scaler_file:
         scaler_file.write(json.dumps(scaler_config, indent=4))
 
