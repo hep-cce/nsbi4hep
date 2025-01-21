@@ -11,7 +11,7 @@ from sklearn.preprocessing import MinMaxScaler
 
 
 def get_components(config):
-    component_flag = np.array(config['flags'])[np.where([ (flag in ['sig', 'int', 'sig-vs-sbi', 'int-vs-sbi', 'bkg-vs-sbi']) for flag in config['flags'] ])]
+    component_flag = np.array(config['flags'])[np.where([ (flag in ['sig', 'int', 'sig-vs-sbi', 'int-vs-sbi', 'bkg-vs-sbi', 'sig-vs-bkg']) for flag in config['flags'] ])]
     component_flag = component_flag[0] if component_flag.shape[0] != 0 else 'sbi'
     component_1, component_2 = component_flag.split('-')[0], component_flag.split('-')[-1]
     

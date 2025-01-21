@@ -80,10 +80,10 @@ def build(config, strategy=None):
 
 def train(model, config, train_dataset, val_dataset, strategy=None):
     # Setup keras callbacks
-    checkpoint_filepath = os.path.join(config['output_dir'], 'checkpoint.model.tf')
+    checkpoint_filepath = os.path.join('.', 'checkpoint.model.tf')
     model_checkpoint_callback = keras.callbacks.ModelCheckpoint(filepath=checkpoint_filepath, monitor='val_loss', mode='min', save_best_only=True, save_format='tf')
     early_stopping_callback = keras.callbacks.EarlyStopping(monitor='val_loss', mode='min', patience=30, start_from_epoch=30)
-    tensorboard_callback = keras.callbacks.TensorBoard(log_dir=os.path.join(config['output_dir'], 'logs'))
+    tensorboard_callback = keras.callbacks.TensorBoard(log_dir=os.path.join('.', 'logs'))
 
     callbacks = [model_checkpoint_callback, tensorboard_callback]
 
