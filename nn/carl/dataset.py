@@ -84,7 +84,7 @@ def load_samples(config, component_1, component_2):
 
     return (match_comp(config, component_1, n_i), match_comp(config, component_2, n_i))
 
-def build(config, seed, strategy=None):
+def build(config, seed):
     component_1, component_2 = get_components(config)
     c6_given = 'c6_values' in config
 
@@ -151,12 +151,7 @@ def build(config, seed, strategy=None):
     train_dataset = tf.data.Dataset.from_tensor_slices((train_data[:,:-2], train_data[:,-2][:,tf.newaxis], train_data[:,-1][:,tf.newaxis]))
     val_dataset = tf.data.Dataset.from_tensor_slices((val_data[:,:-2], val_data[:,-2][:,tf.newaxis], val_data[:,-1][:,tf.newaxis]))
 
-    if 'distributed' in config['flags'] and strategy is not None:
-        with strategy.scope():
-            train_dataset = train_dataset.batch(config['batch_size']*strategy.num_replicas_in_sync)
-            val_dataset = val_dataset.batch(config['batch_size']*strategy.num_replicas_in_sync)
-    else:
-        train_dataset = train_dataset.batch(config['batch_size'])
-        val_dataset = val_dataset.batch(config['batch_size'])
+    train_dataset = train_dataset.batch(config['batch_size'])
+    val_dataset = val_dataset.batch(config['batch_size'])
 
     return (train_dataset, val_dataset)

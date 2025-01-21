@@ -64,7 +64,7 @@ def load_sample(config, component):
     return match_comp(config, component, n_i)
 
 
-def build(config, seed, strategy=None):
+def build(config, seed):
     component_1, component_2 = get_components(config)
     c6_given = 'c6_values' in config
 
@@ -72,8 +72,8 @@ def build(config, seed, strategy=None):
     # Later reweighted as component_1 to get the numerator probabilities
     sample = load_sample(config, component_2)
 
-    bkg_null_filter = msq.MSQFilter('msq_bkg_sm', value=0.0)
-    bkg_nan_filter = msq.MSQFilter('msq_bkg_sm', value=np.nan)
+    int_null_filter = msq.MSQFilter('msq_int_sm', value=0.0)
+    int_nan_filter = msq.MSQFilter('msq_int_sm', value=np.nan)
 
     z_candidate = zpair.ZPairCandidate(algorithm='leastsquare')
     z_masses = zpair.ZMasses(bounds1 = (70,115), bounds2 = (70,115))
@@ -81,8 +81,8 @@ def build(config, seed, strategy=None):
     angles = kinematics.AngularVariables()
     four_lepton = kinematics.FourLeptonSystem()
 
-    events_training_comp_2, events_validation_comp_2 = sample.events.filter(bkg_null_filter).filter(bkg_nan_filter).calculate(z_candidate).filter(z_masses).calculate(angles).calculate(four_lepton)[:int(config['num_events'])].shuffle(random_state=seed).split(training=0.5, validation=0.5)
-    events_training_comp_1, events_validation_comp_1 = sample[component_1].filter(bkg_null_filter).filter(bkg_nan_filter).calculate(z_candidate).filter(z_masses).calculate(angles).calculate(four_lepton)[:int(config['num_events'])].shuffle(random_state=seed).split(training=0.5, validation=0.5)
+    events_training_comp_2, events_validation_comp_2 = sample.events.filter(int_null_filter).filter(int_nan_filter).calculate(z_candidate).filter(z_masses).calculate(angles).calculate(four_lepton)[:int(config['num_events'])].shuffle(random_state=seed).split(training=0.5, validation=0.5)
+    events_training_comp_1, events_validation_comp_1 = sample[component_1].filter(int_null_filter).filter(int_nan_filter).calculate(z_candidate).filter(z_masses).calculate(angles).calculate(four_lepton)[:int(config['num_events'])].shuffle(random_state=seed).split(training=0.5, validation=0.5)
 
     print(f'Building dataset for {["SIG", "INT", "BKG", "SBI"][component_1.value-1]}({"SM" if not c6_given else "c6"}) vs {["SIG", "INT", "BKG", "SBI"][component_2.value-1]}(SM).')
     print(f'Sampling {int(sample.events.kinematics.shape[0])} events from {["SIG", "INT", "BKG", "SBI"][component_2.value-1]}(SM).')
@@ -123,12 +123,7 @@ def build(config, seed, strategy=None):
     train_dataset = tf.data.Dataset.from_tensor_slices((train_data[:,:-2], train_data[:,-2][:,tf.newaxis], train_data[:,-1][:,tf.newaxis]))
     val_dataset = tf.data.Dataset.from_tensor_slices((val_data[:,:-2], train_data[:,-2][:,tf.newaxis], train_data[:,-1][:,tf.newaxis]))
 
-    if 'distributed' in config['flags'] and strategy is not None:
-        with strategy.scope():
-            train_dataset = train_dataset.batch(config['batch_size']*strategy.num_replicas_in_sync)
-            val_dataset = val_dataset.batch(config['batch_size']*strategy.num_replicas_in_sync)
-    else:
-        train_dataset = train_dataset.batch(config['batch_size'])
-        val_dataset = val_dataset.batch(config['batch_size'])
+    train_dataset = train_dataset.batch(config['batch_size'])
+    val_dataset = val_dataset.batch(config['batch_size'])
 
     return (train_dataset, val_dataset)
