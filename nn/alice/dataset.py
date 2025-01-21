@@ -22,30 +22,26 @@ def get_components(config):
 
     return (comp_dict[component_1], comp_dict[component_2])
 
-def build_dataset(x_arr, signal_probabilities, background_probabilities, weights=None):
+def build_dataset(x_arr, signal_probabilities, background_probabilities, c6_values=None, weights=None):
     data = []
 
-    signal_probabilities = tf.cast(signal_probabilities, tf.float32)
-    background_probabilities = tf.cast(background_probabilities, tf.float32)
+    if c6_values is None:
+        signal_probabilities = tf.cast(signal_probabilities, tf.float32)
+        background_probabilities = tf.cast(background_probabilities, tf.float32)
 
-    ratios = signal_probabilities[:,tf.newaxis]/background_probabilities[:,tf.newaxis]
+        ratios = background_probabilities[:,tf.newaxis]/signal_probabilities[:,tf.newaxis]
 
-    inputs = x_arr
-    targets = ratios/(1+ratios)
+        inputs = x_arr
+        targets = 1/(1+ratios)
 
-    print(inputs.shape)
-    print(targets.shape)
-
-    if weights is None:
-        data = tf.concat([inputs, targets], axis=1)
-
-        return data
-    else:
-        sample_weights = tf.cast(weights, tf.float32)[:,tf.newaxis]
+        sample_weights = (signal_probabilities[:,tf.newaxis]+background_probabilities[:,tf.newaxis])/2*inputs.shape[0]
 
         data = tf.concat([inputs, targets, sample_weights], axis=1)
 
         return data
+    else:
+        for c6_val in c6_values:
+            pass
 
 def load_sample(config, component):
     if config['num_events'] is None:
@@ -70,6 +66,7 @@ def load_sample(config, component):
 
 def build(config, seed, strategy=None):
     component_1, component_2 = get_components(config)
+    c6_given = 'c6_values' in config
 
     # Sample will be loaded as component_2 (denominator in pdf ratio)
     # Later reweighted as component_1 to get the numerator probabilities
@@ -84,31 +81,38 @@ def build(config, seed, strategy=None):
     angles = kinematics.AngularVariables()
     four_lepton = kinematics.FourLeptonSystem()
 
-    events_training, events_validation = sample.events.filter(bkg_null_filter).filter(bkg_nan_filter).calculate(z_candidate).filter(z_masses).calculate(angles).calculate(four_lepton)[:int(config['num_events'])].shuffle(random_state=seed).split(training=0.5, validation=0.5)
-    sig_prob_training, sig_prob_validation = [evt.probabilities for evt in sample[component_1].filter(bkg_null_filter).filter(bkg_nan_filter).calculate(z_candidate).filter(z_masses).calculate(angles).calculate(four_lepton)[:int(config['num_events'])].shuffle(random_state=seed).split(training=0.5, validation=0.5)]
+    events_training_comp_2, events_validation_comp_2 = sample.events.filter(bkg_null_filter).filter(bkg_nan_filter).calculate(z_candidate).filter(z_masses).calculate(angles).calculate(four_lepton)[:int(config['num_events'])].shuffle(random_state=seed).split(training=0.5, validation=0.5)
+    events_training_comp_1, events_validation_comp_1 = sample[component_1].filter(bkg_null_filter).filter(bkg_nan_filter).calculate(z_candidate).filter(z_masses).calculate(angles).calculate(four_lepton)[:int(config['num_events'])].shuffle(random_state=seed).split(training=0.5, validation=0.5)
 
-    print(f'Initial base size of {["SIG", "INT", "BKG", "SBI"][component_2.value-1]}(SM) set to {int(sample.events.kinematics.shape[0])}.')
-    print(f'Dataset size after splitting: training={events_training.kinematics.shape[0]}, validation={events_validation.kinematics.shape[0]}')
+    print(f'Building dataset for {["SIG", "INT", "BKG", "SBI"][component_1.value-1]}({"SM" if not c6_given else "c6"}) vs {["SIG", "INT", "BKG", "SBI"][component_2.value-1]}(SM).')
+    print(f'Sampling {int(sample.events.kinematics.shape[0])} events from {["SIG", "INT", "BKG", "SBI"][component_2.value-1]}(SM).')
+    print(f'Dataset size after filtering and splitting: training={events_training_comp_2.kinematics.shape[0]}, validation={events_validation_comp_2.kinematics.shape[0]}')
 
     kin_variables = ['cth_star', 'cth_1', 'cth_2', 'phi_1', 'phi', 'Z1_mass', 'Z2_mass', '4l_mass', '4l_rapidity']
 
-    kinematics_training = events_training.kinematics[kin_variables].to_numpy()
-    kinematics_validation = events_validation.kinematics[kin_variables].to_numpy()
+    kinematics_training = events_training_comp_2.kinematics[kin_variables].to_numpy()
+    kinematics_validation = events_validation_comp_2.kinematics[kin_variables].to_numpy()
+
+    if c6_given:
+        c6_mod_training = c6.Modifier(baseline=component_1, events=events_training_comp_1, c6_values=[-5,-1,0,1,5])
+        c6_mod_training.modify(c6=config['c6_values'])
+
+        c6_mod_validation = c6.Modifier(baseline=component_1, events=events_validation_comp_1, c6_values=[-5,-1,0,1,5])
 
     train_data = build_dataset(x_arr = kinematics_training,
-                               signal_probabilities = sig_prob_training,
-                               background_probabilities = events_training.probabilities)
+                               signal_probabilities = events_training_comp_1.probabilities,
+                               background_probabilities = events_training_comp_2.probabilities)
     
     val_data = build_dataset(x_arr = kinematics_validation,
-                             signal_probabilities = sig_prob_validation,
-                             background_probabilities = events_validation.probabilities)
+                             signal_probabilities = events_validation_comp_1.probabilities,
+                             background_probabilities = events_validation_comp_2.probabilities)
     
     # The following will scale only kinematics for nonprm and kinematics + c6 for prm
     train_scaler = MinMaxScaler()
-    train_data = tf.concat([train_scaler.fit_transform(train_data[:,:-1]), train_data[:,-1][:, tf.newaxis]], axis=1)
+    train_data = tf.concat([train_scaler.fit_transform(train_data[:,:-2]), train_data[:,-2:]], axis=1)
     train_data = tf.random.shuffle(train_data, seed=seed)
 
-    val_data = tf.concat([train_scaler.transform(val_data[:,:-1]), val_data[:,-1][:, tf.newaxis]], axis=1)
+    val_data = tf.concat([train_scaler.transform(val_data[:,:-2]), val_data[:,-2:]], axis=1)
     val_data = tf.random.shuffle(val_data, seed=seed)
 
     scaler_config = {'scaler.scale_': train_scaler.scale_.tolist(), 'scaler.min_': train_scaler.min_.tolist()}
@@ -116,8 +120,8 @@ def build(config, seed, strategy=None):
         scaler_file.write(json.dumps(scaler_config, indent=4))
 
     # Build tf Dataset objects and batch data
-    train_dataset = tf.data.Dataset.from_tensor_slices((train_data[:,:-1], train_data[:,-1][:,tf.newaxis]))
-    val_dataset = tf.data.Dataset.from_tensor_slices((val_data[:,:-1], train_data[:,-1][:,tf.newaxis]))
+    train_dataset = tf.data.Dataset.from_tensor_slices((train_data[:,:-2], train_data[:,-2][:,tf.newaxis], train_data[:,-1][:,tf.newaxis]))
+    val_dataset = tf.data.Dataset.from_tensor_slices((val_data[:,:-2], train_data[:,-2][:,tf.newaxis], train_data[:,-1][:,tf.newaxis]))
 
     if 'distributed' in config['flags'] and strategy is not None:
         with strategy.scope():

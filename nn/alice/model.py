@@ -6,7 +6,7 @@ import numpy as np
 
 @keras.utils.register_keras_serializable()
 def ALICE_loss(y_true, y_pred):
-    return - (1-y_true) * tf.math.log(1 - y_pred) - y_true * tf.math.log(y_pred)
+    return - y_true * tf.math.log(y_pred) - (1-y_true) * tf.math.log(1 - y_pred)
 
 @keras.utils.register_keras_serializable()
 def swish_activation(x, b=1):
@@ -55,8 +55,9 @@ def build(config, strategy=None):
                 beta_2=0.999,
                 epsilon=1e-07
             )
+            loss = keras.losses.BinaryCrossentropy(reduction='sum_over_batch_size')
 
-            model.compile(optimizer=optimizer, loss=ALICE_loss)
+            model.compile(optimizer=optimizer, loss=loss)
     else:
         model = ALICE_reg(num_layers=config['num_layers'], num_nodes=config['num_nodes'], input_dim=9)
 
@@ -66,8 +67,9 @@ def build(config, strategy=None):
             beta_2=0.999,
             epsilon=1e-07
         )
+        loss = keras.losses.BinaryCrossentropy(reduction='sum_over_batch_size')
 
-        model.compile(optimizer=optimizer, loss=ALICE_loss)
+        model.compile(optimizer=optimizer, loss=loss)
     
     return model
 

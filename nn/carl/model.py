@@ -45,9 +45,9 @@ def build(config, strategy=None):
     if 'distributed' in config['flags'] and strategy is not None:
         with strategy.scope():
             if len(config['c6_values']) == 1:
-                model = CARL_clf(num_layers=config['num_layers'], num_nodes=config['num_nodes'], input_dim=8)
-            else:
                 model = CARL_clf(num_layers=config['num_layers'], num_nodes=config['num_nodes'], input_dim=9)
+            else:
+                model = CARL_clf(num_layers=config['num_layers'], num_nodes=config['num_nodes'], input_dim=10)
 
             optimizer = keras.optimizers.Nadam(
                 learning_rate=config['learning_rate'],
@@ -56,12 +56,14 @@ def build(config, strategy=None):
                 epsilon=1e-07
             )
 
-            model.compile(optimizer=optimizer, loss='binary_crossentropy', metrics=['binary_accuracy'], weighted_metrics=['binary_accuracy'])
+            loss = keras.losses.BinaryCrossentropy(reduction='sum_over_batch_size')
+
+            model.compile(optimizer=optimizer, loss=loss, weighted_metrics=[])
     else:
         if len(config['c6_values']) == 1:
-            model = CARL_clf(num_layers=config['num_layers'], num_nodes=config['num_nodes'], input_dim=8)
-        else:
             model = CARL_clf(num_layers=config['num_layers'], num_nodes=config['num_nodes'], input_dim=9)
+        else:
+            model = CARL_clf(num_layers=config['num_layers'], num_nodes=config['num_nodes'], input_dim=10)
 
         optimizer = keras.optimizers.Nadam(
             learning_rate=config['learning_rate'],
@@ -70,13 +72,13 @@ def build(config, strategy=None):
             epsilon=1e-07
         )
 
-        model.compile(optimizer=optimizer, loss='binary_crossentropy', metrics=['binary_accuracy'], weighted_metrics=['binary_accuracy'])
+        loss = keras.losses.BinaryCrossentropy(reduction='sum_over_batch_size')
+
+        model.compile(optimizer=optimizer, loss=loss, weighted_metrics=[])
     
     return model
 
 def train(model, config, train_dataset, val_dataset, strategy=None):
-    os.makedirs(config['output_dir'], exist_ok=True)
-
     # Setup keras callbacks
     checkpoint_filepath = os.path.join(config['output_dir'], 'checkpoint.model.tf')
     model_checkpoint_callback = keras.callbacks.ModelCheckpoint(filepath=checkpoint_filepath, monitor='val_loss', mode='min', save_best_only=True, save_format='tf')

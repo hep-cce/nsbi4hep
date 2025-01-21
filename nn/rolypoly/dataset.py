@@ -77,8 +77,9 @@ def build(config, seed, strategy=None):
     kinematics_training = events_training.kinematics[kin_vars].to_numpy()
     kinematics_validation = events_validation.kinematics[kin_vars].to_numpy()
 
-    print(f'Initial base size of {["SIG", "INT", "BKG", "SBI"][component.value-1]}(SM) set to {sample.events.kinematics.shape[0]}.')
-    print(f'Dataset size after splitting: training={events_training.kinematics.shape[0]}, validation={events_validation.kinematics.shape[0]}')
+    print(f'Building dataset for {["SIG", "INT", "BKG", "SBI"][component.value-1]}.')
+    print(f'Sampling {int(sample.events.kinematics.shape[0])} events from {["SIG", "INT", "BKG", "SBI"][component.value-1]}.')
+    print(f'Dataset size after filtering and splitting: training={events_training.kinematics.shape[0]}, validation={events_validation.kinematics.shape[0]}')
 
     c6_mod_training = c6.Modifier(baseline = component, events=events_training, c6_values = [-5,-1,0,1,5]) if component != msq.Component.INT else c6.Modifier(baseline = component, sample=sample, c6_values = [-5,0,5])
     coeff_training = c6_mod_training.coefficients[:, config['coeff']]
