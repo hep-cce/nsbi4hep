@@ -24,7 +24,7 @@ def load_config(config_path):
         config = json.load(config_file)
 
     # Only one of the component flags can be activated at once
-    component_flags = np.array(['sig', 'sbi', 'int', 'sig-vs-sbi', 'int-vs-sbi', 'bkg-vs-sbi', 'sbi-vs-sig', 'int-vs-sig', 'bkg-vs-sig'])
+    component_flags = np.array(['sbi-vs-bkg', 'sig-vs-bkg'])
     num_c_flags = np.sum(np.array([c_flag in config['flags'] for c_flag in component_flags]).astype(int))
 
     if num_c_flags > 1:
@@ -38,20 +38,22 @@ def load_config(config_path):
         if flag in config['flags']:
             flags_active.append(flag)
 
-    # For BKG no c6 is needed
-    if 'bkg-vs-sbi' in flags_active:
-        c6_input = np.array([0.0])
-    else:
-        c6_input = np.fromstring(config['c6_values'].replace('[','').replace(']',''), sep=',')
-
-    # Build c6 array from the input to the c6 argument
-    if len(c6_input) == 1:
-        c6_values = c6_input
-    elif len(c6_input) == 3:
-        c6_values = np.linspace(float(c6_input[0]), float(c6_input[1]), int(c6_input[2]))
-    else:
-        raise ValueError('c6 should be a single value or three comma separated values like a,b,c specifying a np.linspace(a,b,c)')
+    if 'c6_values' in config:
+        # For BKG no c6 is needed
+        if 'bkg-vs-sbi' in flags_active:
+            c6_input = np.array([0.0])
+        else:
+            c6_input = np.fromstring(config['c6_values'].replace('[','').replace(']',''), sep=',')
     
+        # Build c6 array from the input to the c6 argument
+        if len(c6_input) == 1:
+            c6_values = c6_input
+        elif len(c6_input) == 3:
+            c6_values = np.linspace(float(c6_input[0]), float(c6_input[1]), int(c6_input[2]))
+        else:
+            raise ValueError('c6 should be a single value or three comma separated values like a,b,c specifying a np.linspace(a,b,c)')
+    
+        
     # Build num_nodes array from the input to the num-nodes argument
     n_nodes_input = np.fromstring(str(config['num_nodes']).replace('[','').replace(']',''), sep=',').astype(int)
     if len(n_nodes_input) == 1:
@@ -64,12 +66,14 @@ def load_config(config_path):
     # Load sample dir from config
     sample_dir = '/'.join([os.environ[el[1:]] if '$' in el else el for el in config['sample_dir'].split('/')])
 
-    return {'sample_dir': sample_dir, 'flags': flags_active, 'learning_rate': config['learning_rate'], 'batch_size': config['batch_size'], 'num_events': config['num_events'], 'num_layers': config['num_layers'], 'num_nodes': num_nodes, 'epochs': config['epochs'], 'c6_values': c6_values.tolist()}
+    if not 'c6_values' in config:
+        conf_dict = {'sample_dir': sample_dir, 'flags': flags_active, 'learning_rate': config['learning_rate'], 'batch_size': config['batch_size'], 'num_events': config['num_events'], 'num_layers': config['num_layers'], 'num_nodes': num_nodes, 'epochs': config['epochs']}
+    else:
+        conf_dict = {'sample_dir': sample_dir, 'flags': flags_active, 'c6_values': c6_values, 'learning_rate': config['learning_rate'], 'batch_size': config['batch_size'], 'num_events': config['num_events'], 'num_layers': config['num_layers'], 'num_nodes': num_nodes, 'epochs': config['epochs']}
+    return conf_dict
 
 
 def main(config):
-    rng = np.random.default_rng(seed=SEED)
-
     mirrored_strategy = tf.distribute.MirroredStrategy()
     if 'distributed' in config['flags']:
         print(f'Model will be training on {mirrored_strategy.num_replicas_in_sync} GPUs')

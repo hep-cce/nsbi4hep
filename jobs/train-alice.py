@@ -78,8 +78,6 @@ def load_config(config_path):
 
 
 def main(config):
-    rng = np.random.default_rng(seed=SEED)
-
     mirrored_strategy = tf.distribute.MirroredStrategy()
     if 'distributed' in config['flags']:
         print(f'Model will be training on {mirrored_strategy.num_replicas_in_sync} GPUs')
