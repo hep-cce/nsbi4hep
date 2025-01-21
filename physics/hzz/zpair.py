@@ -3,8 +3,6 @@ import numpy as np
 
 import pandas as pd
 
-from ..hstar import gghzz
-
 class ZPairCandidate:
     def __init__(self, algorithm: str = 'leastsquare'):
         if algorithm not in ['leastsquare', 'closest', 'truth']:
@@ -39,9 +37,9 @@ class ZPairCandidate:
         p34 = (l3 + l4)
 
         # Possible Z boson pairs as Momentum4D objects in vector arrays
-        pairs = vector.array([[p12, p34], [p14, p23]], dtype=[('px',float),('py',float),('pz',float),('E',float)])
+        pairs = vector.array([[p12, p34], [p14, p23]], dtype=[('px',np.float64),('py',np.float64),('pz',np.float64),('E',np.float64)])
         lepton_pairs = vector.array([[[l1,l2],[l3,l4]],
-                                      [[l1,l4],[l3,l2]]], dtype=[('px',float),('py',float),('pz',float),('E',float)])
+                                      [[l1,l4],[l3,l2]]], dtype=[('px',np.float64),('py',np.float64),('pz',np.float64),('E',np.float64)])
 
         # Squared minimization to determine the closest pair
         sq = np.array([(pair[0].mass - self.Z_mass)**2 + (pair[1].mass - self.Z_mass)**2 for pair in pairs]).T
@@ -100,12 +98,12 @@ class ZPairCandidate:
                 'Z1_mass': pd.Series((l1_1 + l2_1).mass), 'Z2_mass': pd.Series((l1_2 + l2_2).mass)}
     
 
-class ZMasses():
-    def __init__(self, bounds1: tuple[int, int] = None, bounds2: tuple[int, int] = None):
-        self.bounds1 = bounds1
-        self.bounds2 = bounds2
+class ZPairMassWindow():
+    def __init__(self, z1: tuple[int, int] = None, z2: tuple[int, int] = None):
+        self.z1 = z1
+        self.z2 = z2
 
-    def __call__(self, kinematics, components, weights, probabilities) -> tuple[np.ndarray, tuple[vector.MomentumNumpy4D, vector.MomentumNumpy4D, vector.MomentumNumpy4D, vector.MomentumNumpy4D]]:
+    def __call__(self, kinematics, components, weights, probabilities) -> np.array:
         #Outgoing leptons
         l1 = vector.array({'px': kinematics['l1_px'], 'py': kinematics['l1_py'], 'pz': kinematics['l1_pz'], 'E': kinematics['l1_E']})#negative l1
         l2 = vector.array({'px': kinematics['l2_px'], 'py': kinematics['l2_py'], 'pz': kinematics['l2_pz'], 'E': kinematics['l2_E']})#positive l1
@@ -115,13 +113,13 @@ class ZMasses():
         Z1 = l1 + l2
         Z2 = l3 + l4
 
-        if self.bounds1 is not None:
-            cond1 = np.where((Z1.mass>=self.bounds1[0])&(Z1.mass<=self.bounds1[1]))
+        if self.z1 is not None:
+            cond1 = np.where((Z1.mass>=self.z1[0])&(Z1.mass<=self.z1[1]))
         else:
             cond1 = np.arange(Z1.mass.shape[0])
 
-        if self.bounds2 is not None:
-            cond2 = np.where((Z2.mass>=self.bounds2[0])&(Z2.mass<=self.bounds2[1]))
+        if self.z2 is not None:
+            cond2 = np.where((Z2.mass>=self.z2[0])&(Z2.mass<=self.z2[1]))
         else:
             cond2 = np.arange(Z2.mass.shape[0])
 

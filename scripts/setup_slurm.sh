@@ -6,7 +6,5 @@ module load tensorflow/gpu-cuda-12.1/2.14.0 protobuf/4.24.0 mkl/2023.1 cuda/12.1
 
 python -m venv --system-site-packages venv
 source venv/bin/activate
-
 pip install vector
-
 deactivate

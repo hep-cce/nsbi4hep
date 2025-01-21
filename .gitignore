@@ -1,7 +1,13 @@
 __pycache__/
 
+run/
+
 inference/
+job/
+
 venv/
+venv_*/
+**/lightning_logs/
 
 *.dat
 *.csv
@@ -13,7 +19,3 @@ venv/
 *.tf/
 *.slurm
 *.config
-jobs/carl/
-jobs/rolr/
-jobs/rolypoly/
-jobs/alice/
