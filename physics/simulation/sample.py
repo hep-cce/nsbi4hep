@@ -19,6 +19,9 @@ class Process():
   def __init__(self, kinematics=None, components=None, weights=None):
     self.kinematics = kinematics
     self.components = components
+    # HACK: to avoid negative weights
+    # only e.g. 2/2M events have infinitesimally-small negative weights due to numerical precision
+    weights[weights < 0] = 0.0
     self.weights = weights
     self.probabilities = weights / weights.sum()
 
@@ -88,3 +91,7 @@ class Process():
       self.components.loc[unweighted_events_indices],
       pd.Series(np.ones_like(unweighted_events_indices))
     )
+
+  def reweight(self, denominator, numerator):
+    reweights = self.weights * self.components[mcfm.component_sm[numerator]] / self.components[mcfm.component_sm[denominator]]
+    return Process(self.kinematics.copy(), self.components.copy(), reweights)
