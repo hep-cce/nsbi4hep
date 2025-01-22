@@ -41,44 +41,29 @@ class CARL_clf(keras.Model):
 
         return x
     
-def build(config, strategy=None):
-    if 'distributed' in config['flags'] and strategy is not None:
-        with strategy.scope():
-            if len(config['c6_values']) == 1:
-                model = CARL_clf(num_layers=config['num_layers'], num_nodes=config['num_nodes'], input_dim=9)
-            else:
-                model = CARL_clf(num_layers=config['num_layers'], num_nodes=config['num_nodes'], input_dim=10)
-
-            optimizer = keras.optimizers.Nadam(
-                learning_rate=config['learning_rate'],
-                beta_1=0.9,
-                beta_2=0.999,
-                epsilon=1e-07
-            )
-
-            loss = keras.losses.BinaryCrossentropy(reduction='sum_over_batch_size')
-
-            model.compile(optimizer=optimizer, loss=loss, weighted_metrics=[])
-    else:
+def build(config):
+    if 'c6_values' in config:
         if len(config['c6_values']) == 1:
             model = CARL_clf(num_layers=config['num_layers'], num_nodes=config['num_nodes'], input_dim=9)
         else:
             model = CARL_clf(num_layers=config['num_layers'], num_nodes=config['num_nodes'], input_dim=10)
+    else:
+        model = CARL_clf(num_layers=config['num_layers'], num_nodes=config['num_nodes'], input_dim=9)
 
-        optimizer = keras.optimizers.Nadam(
-            learning_rate=config['learning_rate'],
-            beta_1=0.9,
-            beta_2=0.999,
-            epsilon=1e-07
-        )
+    optimizer = keras.optimizers.Nadam(
+        learning_rate=config['learning_rate'],
+        beta_1=0.9,
+        beta_2=0.999,
+        epsilon=1e-07
+    )
 
-        loss = keras.losses.BinaryCrossentropy(reduction='sum_over_batch_size')
+    loss = keras.losses.BinaryCrossentropy(reduction='sum_over_batch_size')
 
-        model.compile(optimizer=optimizer, loss=loss, weighted_metrics=[])
+    model.compile(optimizer=optimizer, loss=loss, weighted_metrics=[])
     
     return model
 
-def train(model, config, train_dataset, val_dataset, strategy=None):
+def train(model, config, train_dataset, val_dataset):
     # Setup keras callbacks
     checkpoint_filepath = os.path.join('.', 'checkpoint.model.tf')
     model_checkpoint_callback = keras.callbacks.ModelCheckpoint(filepath=checkpoint_filepath, monitor='val_loss', mode='min', save_best_only=True, save_format='tf')
@@ -87,11 +72,7 @@ def train(model, config, train_dataset, val_dataset, strategy=None):
 
     callbacks = [model_checkpoint_callback, tensorboard_callback]
 
-    if 'distributed' in config['flags'] and strategy is not None:
-        with strategy.scope():
-            history_callback = model.fit(train_dataset, validation_data=val_dataset, callbacks=callbacks, epochs=config['epochs'], verbose=2)
-    else:
-        history_callback = model.fit(train_dataset, validation_data=val_dataset, callbacks=callbacks, epochs=config['epochs'], verbose=2)
+    history_callback = model.fit(train_dataset, validation_data=val_dataset, callbacks=callbacks, epochs=config['epochs'], verbose=2)
         
     return history_callback
 
