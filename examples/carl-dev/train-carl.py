@@ -42,7 +42,7 @@ if __name__ == "__main__":
     parser.add_argument('--signal-process', type=str, default='sig', help='Signal process')
     parser.add_argument('--background-process', type=str, default='bkg', help='Background process')
     parser.add_argument('--sample-size', type=int, default=10000, help='Number of hidden nodes')
-    parser.add_argument('--batch-size', type=float, default=32, help='Learning rate')
+    parser.add_argument('--batch-size', type=int, default=1024, help='Learning rate')
     parser.add_argument('--random-state', type=int, default=42, help='Random state')
     parser.add_argument('--learning-rate', type=float, default=2e-3, help='Learning rate')
     parser.add_argument('--accelerator', type=str, default='gpu', help='Trainer accelerator')

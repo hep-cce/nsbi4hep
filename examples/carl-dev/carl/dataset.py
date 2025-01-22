@@ -2,9 +2,8 @@ import os
 import pickle
 
 import numpy as np
-
 from sklearn.preprocessing import StandardScaler
-
+from sklearn.utils import shuffle
 import torch
 from torch import nn
 import torch.nn.functional as F
@@ -28,7 +27,8 @@ class BalancedDataModule(L.LightningDataModule):
         self.sample_size = sample_size
         self.batch_size = batch_size
 
-        self.scaler = StandardScaler(with_mean=False)
+        # self.scaler = StandardScaler(with_mean=False)
+        self.scaler = StandardScaler()
 
     def prepare_data(self):
 
@@ -44,38 +44,42 @@ class BalancedDataModule(L.LightningDataModule):
         sample_sig = sample_sig.calculate(zcands).filter(zmasses).calculate(h4lcp).calculate(h4lp4)
         sample_bkg = sample_bkg.calculate(zcands).filter(zmasses).calculate(h4lcp).calculate(h4lp4)
 
-        # unweight both to *same* (i.e. balanced) sample size
+        # unweight signal & background to *same* (i.e. balanced) sample size
         sample_sig_train = sample_sig.unweight(self.sample_size, random_state=self.random_state)
-        sample_sig_val = sample_sig.unweight(self.sample_size, random_state=self.random_state)
         sample_bkg_train = sample_bkg.unweight(self.sample_size, random_state=self.random_state)
+        sample_sig_val = sample_sig.unweight(self.sample_size, random_state=self.random_state)
         sample_bkg_val = sample_bkg.unweight(self.sample_size, random_state=self.random_state)
 
-        # set kinematics as features
+        # features
         observables = ['cth_star', 'cth_1', 'cth_2', 'phi_1', 'phi', 'Z1_mass', 'Z2_mass', '4l_mass', '4l_rapidity']
 
-        # using 4l angular observables + mass + rapidity
+        # 4l angular observables + mass + rapidity
         obs_sig_train = sample_sig_train.kinematics[observables].to_numpy()
         obs_sig_val = sample_sig_val.kinematics[observables].to_numpy()
         obs_bkg_train = sample_bkg_train.kinematics[observables].to_numpy()
         obs_bkg_val = sample_bkg_val.kinematics[observables].to_numpy()
 
-        # kinematic features tensors
-        X_train = torch.cat([torch.tensor(obs_sig_train,dtype=torch.float32),torch.tensor(obs_bkg_train,dtype=torch.float32)])
-        X_val = torch.cat([torch.tensor(obs_sig_val,dtype=torch.float32),torch.tensor(obs_bkg_val,dtype=torch.float32)])
+        # signal & background
+        X_train = np.concatenate([obs_sig_train,obs_bkg_train])
+        X_val = np.concatenate([obs_sig_val,obs_bkg_val])
 
-        # scale features
-        self.scaler.fit_transform(X_train)
+        # scale
+        X_train = self.scaler.fit_transform(X_train)
         with open('scaler.pkl', 'wb') as f:
             pickle.dump(self.scaler, f)
-        self.scaler.transform(X_val)
+        X_val = self.scaler.transform(X_val)
 
         # y(signal) = 1, y(background) = 0 target tensors
-        y_train = torch.cat([torch.tensor(np.ones(self.sample_size),dtype=torch.float32),torch.tensor(np.zeros(self.sample_size),dtype=torch.float32)])
-        y_val = torch.cat([torch.tensor(np.ones(self.sample_size),dtype=torch.float32),torch.tensor(np.zeros(self.sample_size),dtype=torch.float32)])
+        y_train = np.concatenate([np.ones(self.sample_size),np.zeros(self.sample_size)])
+        y_val = np.concatenate([np.ones(self.sample_size),np.zeros(self.sample_size)])
+
+        # shuffle features & labels consistently
+        X_train, y_train = shuffle(X_train, y_train, random_state=self.random_state) 
+        X_val, y_val = shuffle(X_train, y_train, random_state=self.random_state) 
 
         # create (features, target) tensors
-        self.train_data = torch.utils.data.TensorDataset(X_train, y_train)
-        self.val_data = torch.utils.data.TensorDataset(X_val, y_val)
+        self.train_data = torch.utils.data.TensorDataset(torch.tensor(X_train,dtype=torch.float32), torch.tensor(y_train,dtype=torch.float32))
+        self.val_data = torch.utils.data.TensorDataset(torch.tensor(X_val,dtype=torch.float32), torch.tensor(y_val,dtype=torch.float32))
 
     def train_dataloader(self):
         return DataLoader(self.train_data, batch_size=self.batch_size)
