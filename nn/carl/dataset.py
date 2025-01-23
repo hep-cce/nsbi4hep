@@ -121,6 +121,9 @@ def build(config, seed):
 
         c6_mod_validation = c6.Modifier(baseline=component_1, events=events_validation_sig, c6_values=[-5,-1,0,1,5])
         _, sig_probabilities_validation = c6_mod_validation.modify(c6=config['c6_values'])
+    else:
+        sig_probabilities_training = events_training_sig.probabilities
+        sig_probabilities_validation = events_validation_sig.probabilities
 
 
     train_data = build_dataset(x_arr_sig = kinematics_training_sig,

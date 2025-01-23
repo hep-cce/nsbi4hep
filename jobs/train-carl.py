@@ -32,7 +32,7 @@ def load_config(config_path):
 
     # Add all active flags to flag list
     flags_active = []
-    flags_possible = ['distributed']
+    flags_possible = []
     flags_possible.extend(component_flags)
     for flag in flags_possible:
         if flag in config['flags']:
@@ -74,18 +74,14 @@ def load_config(config_path):
 
 
 def main(config):
-    mirrored_strategy = tf.distribute.MirroredStrategy()
-    if 'distributed' in config['flags']:
-        print(f'Model will be training on {mirrored_strategy.num_replicas_in_sync} GPUs')
-
     # Build datasets (distributed if flag given)
-    train_dataset, val_dataset = dataset.build(config, SEED, mirrored_strategy)
+    train_dataset, val_dataset = dataset.build(config, SEED)
 
     # Build model (distributed if flag given)
-    model_carl = model.build(config, mirrored_strategy)
+    model_carl = model.build(config)
 
     # Train model
-    history_callback = model.train(model_carl, config, train_dataset, val_dataset, strategy=mirrored_strategy)
+    history_callback = model.train(model_carl, config, train_dataset, val_dataset)
     
     # Save model
     model.save(model_carl, history_callback)

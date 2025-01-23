@@ -22,7 +22,7 @@ class Events():
     new_columns = calculator(events.kinematics)
 
     for column_name, column_series in new_columns.items():
-      events.kinematics[column_name] = column_series
+      events.kinematics[column_name] = column_series.to_numpy()
 
     return events
 
