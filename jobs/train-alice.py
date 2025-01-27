@@ -1,98 +1,76 @@
-import numpy as np
-import os, json
-import sys
-from argparse import ArgumentParser
-import warnings
-warnings.filterwarnings("ignore", category=DeprecationWarning) 
+import argparse
 
-import tensorflow as tf
+import torch
+from lightning import Trainer
+from lightning.pytorch.callbacks import ModelCheckpoint
 
-from nn.alice import dataset, model
+from physics.simulation import msq
+from alice import dataset, model
 
+torch.set_float32_matmul_precision('medium')
 
-SEED=373485
+SAMPLE_DIR = '/raven/u/griesemx/ggZZ_work/'
 
-def parse_arguments():
-    parser = ArgumentParser(description='Python script for training (deep) neural networks in a SM vs BSM classification scenario.')
-    parser.add_argument('config', type=str, help='Config file to be used for setting necessary parameters.')
+components = {
+    'sbi': msq.Component.SBI,
+    'sig': msq.Component.SIG,
+    'int': msq.Component.INT,
+    'bkg': msq.Component.BKG
+}
 
+xs = {
+    msq.Component.SBI : 1.5569109,
+    msq.Component.SIG : 0.15105108,
+    msq.Component.INT : -0.22043824,
+    msq.Component.BKG : 1.6270497
+}
+
+filenames = {
+    msq.Component.SBI : 'ggZZ2e2m_sbi.csv',
+    msq.Component.SIG : 'ggZZ2e2m_sig.csv',
+    msq.Component.INT : 'ggZZ2e2m_int.csv',
+    msq.Component.BKG : 'ggZZ2e2m_bkg.csv'
+}
+
+def main(args):
+    cmp_sig, cmp_bkg = components[args.signal_process], components[args.background_process]
+
+    data = dataset.AliceDataModule(data_dir = SAMPLE_DIR, 
+                                   background_file = filenames[cmp_bkg], 
+                                   background_xs = xs[cmp_bkg],
+                                   signal_component = cmp_sig,
+                                   background_component = cmp_bkg,
+                                   sample_size = args.sample_size,
+                                   batch_size = args.batch_size,
+                                   random_state = args.random_state)
+
+    model_alice = model.ALICE(args.n_features, args.n_layers, args.n_nodes, args.learning_rate)
+
+    # save best-two models based on validation loss
+    model_checkpoint_callback = ModelCheckpoint(
+        save_top_k=2,
+        monitor="val_loss",
+        mode="min",
+        dirpath="checkpoints/",
+        filename="checkpoint-alice-{epoch:02d}-{val_loss:.2f}",
+    )
+
+    trainer = Trainer(accelerator=args.accelerator, max_epochs=100, callbacks=[model_checkpoint_callback])
+
+    trainer.fit(model_alice, datamodule=data)
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Train an ALICE model")
+    parser.add_argument('--n-features', type=int, default=9, help='Number of features')
+    parser.add_argument('--n-layers', type=int, default=10, help='Number of layers')
+    parser.add_argument('--n-nodes', type=int, default=100, help='Number of hidden nodes')
+    parser.add_argument('--signal-process', type=str, default='sig', help='Signal process')
+    parser.add_argument('--background-process', type=str, default='bkg', help='Background process')
+    parser.add_argument('--sample-size', type=int, default=10000, help='Number of hidden nodes')
+    parser.add_argument('--batch-size', type=int, default=1024, help='Learning rate')
+    parser.add_argument('--random-state', type=int, default=42, help='Random state')
+    parser.add_argument('--learning-rate', type=float, default=2e-3, help='Learning rate')
+    parser.add_argument('--accelerator', type=str, default='gpu', help='Trainer accelerator')
+    
     args = parser.parse_args()
-    return args
-
-def load_config(config_path):
-    with open(config_path, 'r') as config_file:
-        config = json.load(config_file)
-
-    # Only one of the component flags can be activated at once
-    component_flags = np.array(['sbi-vs-bkg', 'sig-vs-bkg'])
-    num_c_flags = np.sum(np.array([c_flag in config['flags'] for c_flag in component_flags]).astype(int))
-
-    if num_c_flags > 1:
-        raise ValueError(f'You can only activate one of {component_flags} at once')
-
-    # Add all active flags to flag list
-    flags_active = []
-    flags_possible = ['distributed']
-    flags_possible.extend(component_flags)
-    for flag in flags_possible:
-        if flag in config['flags']:
-            flags_active.append(flag)
-
-    """
-    # For BKG no c6 is needed
-    if 'bkg-vs-sbi' in flags_active:
-        c6_input = np.array([0.0])
-    else:
-        c6_input = np.fromstring(config['c6_values'].replace('[','').replace(']',''), sep=',')
-    
-    # Build c6 array from the input to the c6 argument
-    if len(c6_input) == 1:
-        c6_values = c6_input
-    elif len(c6_input) == 3:
-        c6_values = np.linspace(float(c6_input[0]), float(c6_input[1]), int(c6_input[2]))
-    else:
-        raise ValueError('c6 should be a single value or three comma separated values like a,b,c specifying a np.linspace(a,b,c)')
-    """
-        
-    # Build num_nodes array from the input to the num-nodes argument
-    n_nodes_input = np.fromstring(str(config['num_nodes']).replace('[','').replace(']',''), sep=',').astype(int)
-    if len(n_nodes_input) == 1:
-        num_nodes = n_nodes_input.item()
-    elif len(n_nodes_input) == config['num_layers']:
-        num_nodes = n_nodes_input.tolist()
-    else:
-        raise ValueError('num-nodes should be a single value or a comma separated list of integer values with a length equals len(num-nodes)=num-layers')
-    
-    # Load sample dir from config
-    sample_dir = '/'.join([os.environ[el[1:]] if '$' in el else el for el in config['sample_dir'].split('/')])
-
-    return {'sample_dir': sample_dir, 'flags': flags_active, 'learning_rate': config['learning_rate'], 'batch_size': config['batch_size'], 'num_events': config['num_events'], 'num_layers': config['num_layers'], 'num_nodes': num_nodes, 'epochs': config['epochs']}
-
-
-def main(config):
-    rng = np.random.default_rng(seed=SEED)
-
-    mirrored_strategy = tf.distribute.MirroredStrategy()
-    if 'distributed' in config['flags']:
-        print(f'Model will be training on {mirrored_strategy.num_replicas_in_sync} GPUs')
-
-    # Build datasets (distributed if flag given)
-    train_dataset, val_dataset = dataset.build(config, SEED, mirrored_strategy)
-
-    # Build model (distributed if flag given)
-    model_alice = model.build(config, mirrored_strategy)
-
-    # Train model
-    history_callback = model.train(model_alice, config, train_dataset, val_dataset, strategy=mirrored_strategy)
-    
-    # Save model
-    model.save(model_alice, history_callback)
-
-    print(model_alice.summary())
-
-
-if __name__ == '__main__':
-    args = parse_arguments()
-    config = load_config(args.config)
-
-    main(config)
+    main(args)
