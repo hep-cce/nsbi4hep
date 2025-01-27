@@ -44,7 +44,7 @@ def main(args):
                                       batch_size = args.batch_size,
                                       random_state = args.random_state)
 
-    model_alice = model.ALICE(args.n_features, args.n_layers, args.n_nodes, args.learning_rate)
+    model_rolypoly = model.ROLYPOLY(args.n_features, args.n_layers, args.n_nodes, args.learning_rate)
 
     # save best-two models based on validation loss
     model_checkpoint_callback = ModelCheckpoint(
@@ -57,7 +57,7 @@ def main(args):
 
     trainer = Trainer(accelerator=args.accelerator, max_epochs=100, callbacks=[model_checkpoint_callback])
 
-    trainer.fit(model_alice, datamodule=data)
+    trainer.fit(model_rolypoly, datamodule=data)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Train a ROLYPOLY model")
