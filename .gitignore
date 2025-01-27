@@ -9,6 +9,9 @@ venv/
 venv_*/
 **/lightning_logs/
 
+jobs/alice
+jobs/rolypoly
+jobs/carl
 *.dat
 *.csv
 *.pdf
