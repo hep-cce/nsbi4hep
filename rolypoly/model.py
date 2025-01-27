@@ -18,7 +18,7 @@ class ROLYPOLY(L.LightningModule):
         layers.append(nn.Sequential(nn.Linear(n_features, n_nodes), nn.SiLU()))
         for _ in range(n_layers):
             layers.append(nn.Sequential(nn.Linear(n_nodes, n_nodes), nn.SiLU()))
-        layers.append(nn.Sequential(nn.Linear(n_nodes, 1), nn.Linear()))
+        layers.append(nn.Linear(n_nodes, 1))
         self.model = nn.Sequential(*layers)
 
         def init_weights(m):

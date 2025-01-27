@@ -33,12 +33,12 @@ filenames = {
 }
 
 def main(args):
-    cmp_sig, cmp_bkg = components[args.signal_process], components[args.background_process]
+    cmp = components[args.process]
 
     data = dataset.RolypolyDataModule(data_dir = SAMPLE_DIR, 
-                                      sample_file = filenames[cmp_bkg], 
-                                      sample_xs = xs[cmp_bkg],
-                                      sample_baseline = cmp_sig,
+                                      sample_file = filenames[cmp], 
+                                      sample_xs = xs[cmp],
+                                      sample_baseline = cmp,
                                       coefficient_index = args.coefficient,
                                       sample_size = args.sample_size,
                                       batch_size = args.batch_size,

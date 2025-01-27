@@ -85,7 +85,7 @@ class CoefficientDataset(Dataset):
         self._create_dataset()
 
     def _create_dataset(self):
-        sample_background = sample.from_csv(cross_section=self.background_xs, file_path=self.background_file, n_rows=self.offset+int(self.sample_size*1.2))
+        sample_background = sample.from_csv(cross_section=self.sample_xs, file_path=self.sample_file, n_rows=self.offset+int(self.sample_size*1.2))
         
         msq_bkg_null = msq.MSQFilter('msq_bkg_sm', 0.0)
         msq_bkg_nan = msq.MSQFilter('msq_bkg_sm', np.nan)
@@ -103,9 +103,9 @@ class CoefficientDataset(Dataset):
         X = sample_processed.kinematics[features].to_numpy()
 
         c6_mod = c6.Modifier(baseline=self.sample_baseline, sample=sample_processed, c6_values=[-5,-1,0,1,5])
-        coefficient = c6_mod.coefficients[self.coefficient_index]
+        coefficient = c6_mod.coefficients[:, self.coefficient_index]
 
-        y = coefficient.to_numpy()
+        y = coefficient
 
         sample_weights = self.sample_size*sample_processed.probabilities.to_numpy()
 
