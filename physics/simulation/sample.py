@@ -55,13 +55,18 @@ class Process():
   def split(self, train_size=1, val_size=1, test_size=None):
 
     if test_size is not None:
-      total = train_size + val_size + test_size
-      train_size /= total
-      val_size /= total
-      test_size /= total
+      total_size = train_size + val_size + test_size
+      train_size /= total_size
+      val_size /= total_size
+      test_size /= total_size
         
       split_1_kin, kinematics_test, split_1_comp, components_test, split_1_wt, weights_test = train_test_split(self.kinematics, self.components, self.weights, test_size=test_size, train_size=train_size+val_size, shuffle=False)
       kinematics_train, kinematics_val, components_train, components_val, weights_train, weights_val = train_test_split(split_1_kin, split_1_comp, split_1_wt, test_size=val_size, train_size=train_size, shuffle=False)
+
+      # the weights now must be scaled up so the sum of weights remains the cross-section
+      weights_test /= test_size
+      weights_train /= train_size
+      weights_val /= val_size
 
       return Process(
         kinematics_train, components_train, weights_train
@@ -72,9 +77,13 @@ class Process():
       )
 
     else:
-      total = train_size + val_size
-      train_size /= total
-      val_size /= total
+      total_size = train_size + val_size
+      train_size /= total_size
+      val_size /= total_size
+
+      # the weights now must be scaled up so the sum of weights remains the cross-section
+      weights_train /= train_size
+      weights_val /= val_size
 
       kinematics_train, kinematics_val, components_train, components_val, weights_train, weights_val = train_test_split(self.kinematics, self.components, self.weights, test_size=val_size, train_size=train_size, shuffle=False)
       return Process(
