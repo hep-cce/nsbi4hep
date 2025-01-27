@@ -2,6 +2,7 @@
 
 import torch
 from models import CARL
+from models import ALICE
 
 import os
 import pickle
@@ -32,7 +33,8 @@ JOB_DIR = '/u/taepa/higgs-offshell-interpretation/run/carl-100k/'
 
 # def main(args):
 
-model = CARL.load_from_checkpoint('/u/taepa/higgs-offshell-interpretation/run/carl-100k/checkpoints/checkpoint-epoch=44-val_loss=0.45.ckpt', n_features=9, n_layers=10, n_nodes=100)
+# model = CARL.load_from_checkpoint('/u/taepa/higgs-offshell-interpretation/run/carl-100k/checkpoints/checkpoint-epoch=44-val_loss=0.45.ckpt', n_features=9, n_layers=10, n_nodes=100)
+# model = CARL.load_from_checkpoint('/u/taepa/higgs-offshell-interpretation/run/carl-100k/checkpoints/checkpoint-epoch=44-val_loss=0.45.ckpt', n_features=9, n_layers=10, n_nodes=100)
 # model = CARL.load_from_checkpoint('/u/taepa/higgs-offshell-interpretation/run/carl-sbi_vs_bkg/checkpoints/checkpoint-epoch=14-val_loss=0.69.ckpt', n_features=9, n_layers=10, n_nodes=100)
 
 sig = sample.from_csv(0.2, SAMPLE_FILEPATH['sig'], n_rows = 10000)
@@ -67,8 +69,8 @@ n_bins = 30
 # r_bins = np.logspace(np.log(r_min),np.log(r_max),n_bins+1,base=np.e)
 # r_centers = (r_bins[:-1] + r_bins[1:]) / 2
 
-logr_min = -4
-logr_max = 4.0
+logr_min = -3
+logr_max = 3.0
 n_bins = 25
 
 logr_bins = np.linspace(logr_min,logr_max,n_bins+1)

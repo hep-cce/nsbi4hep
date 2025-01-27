@@ -104,3 +104,10 @@ class Process():
   def reweight(self, denominator, numerator):
     reweights = self.weights * self.components[mcfm.component_sm[numerator]] / self.components[mcfm.component_sm[denominator]]
     return Process(self.kinematics.copy(), self.components.copy(), reweights)
+  
+  def __getitem__(self, item):
+    return Process(
+      self.kinematics.iloc[item],
+      self.components.iloc[item],
+      self.weights.iloc[item]
+    )
