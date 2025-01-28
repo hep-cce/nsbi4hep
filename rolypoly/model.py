@@ -5,7 +5,7 @@ import lightning as L
 
 def weighted_MSELoss(pred, target, weight):
     mse_loss = nn.MSELoss(reduction='none')
-    return torch.sum(weight*mse_loss(pred, target))/torch.sum(weight)
+    return torch.sum(weight*mse_loss(pred, target))/len(target)
 
 class ROLYPOLY(L.LightningModule):
 
