@@ -11,7 +11,7 @@ from sklearn.preprocessing import MinMaxScaler
 
 
 def get_components(config):
-    component_flag = np.array(config['flags'])[np.where([ (flag in ['sig', 'int', 'sig-vs-sbi', 'int-vs-sbi', 'bkg-vs-sbi']) for flag in config['flags'] ])]
+    component_flag = np.array(config['flags'])[np.where([ (flag in ['sig', 'int', 'sig-vs-sbi', 'int-vs-sbi', 'bkg-vs-sbi', 'sig-vs-bkg']) for flag in config['flags'] ])]
     component_flag = component_flag[0] if component_flag.shape[0] != 0 else 'sbi'
     component_1, component_2 = component_flag.split('-')[0], component_flag.split('-')[-1]
     
@@ -84,7 +84,7 @@ def load_samples(config, component_1, component_2):
 
     return (match_comp(config, component_1, n_i), match_comp(config, component_2, n_i))
 
-def build(config, seed, strategy=None):
+def build(config, seed):
     component_1, component_2 = get_components(config)
     c6_given = 'c6_values' in config
 
@@ -121,6 +121,9 @@ def build(config, seed, strategy=None):
 
         c6_mod_validation = c6.Modifier(baseline=component_1, events=events_validation_sig, c6_values=[-5,-1,0,1,5])
         _, sig_probabilities_validation = c6_mod_validation.modify(c6=config['c6_values'])
+    else:
+        sig_probabilities_training = events_training_sig.probabilities
+        sig_probabilities_validation = events_validation_sig.probabilities
 
 
     train_data = build_dataset(x_arr_sig = kinematics_training_sig,
@@ -151,12 +154,7 @@ def build(config, seed, strategy=None):
     train_dataset = tf.data.Dataset.from_tensor_slices((train_data[:,:-2], train_data[:,-2][:,tf.newaxis], train_data[:,-1][:,tf.newaxis]))
     val_dataset = tf.data.Dataset.from_tensor_slices((val_data[:,:-2], val_data[:,-2][:,tf.newaxis], val_data[:,-1][:,tf.newaxis]))
 
-    if 'distributed' in config['flags'] and strategy is not None:
-        with strategy.scope():
-            train_dataset = train_dataset.batch(config['batch_size']*strategy.num_replicas_in_sync)
-            val_dataset = val_dataset.batch(config['batch_size']*strategy.num_replicas_in_sync)
-    else:
-        train_dataset = train_dataset.batch(config['batch_size'])
-        val_dataset = val_dataset.batch(config['batch_size'])
+    train_dataset = train_dataset.batch(config['batch_size'])
+    val_dataset = val_dataset.batch(config['batch_size'])
 
     return (train_dataset, val_dataset)
