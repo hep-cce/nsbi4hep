@@ -6,11 +6,12 @@ from sklearn.utils import shuffle
 
 from . import mcfm
 
-def from_csv(cross_section, file_path, n_rows=None):
-  df = pd.read_csv(file_path, nrows=n_rows)
+def from_csv(cross_section=1.0, *, file_path, n_rows=None):
+  df = pd.read_csv(file_path, nrows=n_rows, float_precision='round_trip')
   kinematics = df[mcfm.kinematics]
   components = df[mcfm.components]
   weights = df[mcfm.weight]
+  print(weights.sum())
   weights *= cross_section / weights.sum() 
   return Process(kinematics, components, weights)
 
@@ -55,13 +56,18 @@ class Process():
   def split(self, train_size=1, val_size=1, test_size=None):
 
     if test_size is not None:
-      total = train_size + val_size + test_size
-      train_size /= total
-      val_size /= total
-      test_size /= total
+      total_size = train_size + val_size + test_size
+      train_size /= total_size
+      val_size /= total_size
+      test_size /= total_size
         
       split_1_kin, kinematics_test, split_1_comp, components_test, split_1_wt, weights_test = train_test_split(self.kinematics, self.components, self.weights, test_size=test_size, train_size=train_size+val_size, shuffle=False)
       kinematics_train, kinematics_val, components_train, components_val, weights_train, weights_val = train_test_split(split_1_kin, split_1_comp, split_1_wt, test_size=val_size, train_size=train_size, shuffle=False)
+
+      # the weights now must be scaled up so the sum of weights remains the cross-section
+      weights_test /= test_size
+      weights_train /= train_size
+      weights_val /= val_size
 
       return Process(
         kinematics_train, components_train, weights_train
@@ -72,9 +78,13 @@ class Process():
       )
 
     else:
-      total = train_size + val_size
-      train_size /= total
-      val_size /= total
+      total_size = train_size + val_size
+      train_size /= total_size
+      val_size /= total_size
+
+      # the weights now must be scaled up so the sum of weights remains the cross-section
+      weights_train /= train_size
+      weights_val /= val_size
 
       kinematics_train, kinematics_val, components_train, components_val, weights_train, weights_val = train_test_split(self.kinematics, self.components, self.weights, test_size=val_size, train_size=train_size, shuffle=False)
       return Process(
@@ -87,9 +97,9 @@ class Process():
     unweighted_events_indices = self.weights.sample(n=n, replace=True, weights=self.weights, random_state=random_state).index
 
     return Process(
-      self.kinematics.loc[unweighted_events_indices],
-      self.components.loc[unweighted_events_indices],
-      pd.Series(np.ones_like(unweighted_events_indices))
+      self.kinematics.loc[unweighted_events_indices].reset_index(drop=True),
+      self.components.loc[unweighted_events_indices].reset_index(drop=True),
+      pd.Series(np.ones_like(unweighted_events_indices)).reset_index(drop=True)
     )
 
   def reweight(self, denominator, numerator):

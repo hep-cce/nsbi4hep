@@ -1,3 +1,4 @@
+import os
 import argparse
 
 import torch
@@ -6,11 +7,10 @@ from lightning.pytorch.callbacks import ModelCheckpoint
 from lightning.pytorch.loggers import CSVLogger
 
 from physics.simulation import msq
-from alice import dataset, model
+from models import alice
+from datasets import jointlikelihood
 
 torch.set_float32_matmul_precision('medium')
-
-SAMPLE_DIR = '/raven/u/griesemx/ggZZ_work/'
 
 components = {
     'sbi': msq.Component.SBI,
@@ -19,54 +19,38 @@ components = {
     'bkg': msq.Component.BKG
 }
 
-xs = {
-    msq.Component.SBI : 1.5569109,
-    msq.Component.SIG : 0.15105108,
-    msq.Component.INT : -0.22043824,
-    msq.Component.BKG : 1.6270497
-}
-
-filenames = {
-    msq.Component.SBI : 'ggZZ2e2m_sbi.csv',
-    msq.Component.SIG : 'ggZZ2e2m_sig.csv',
-    msq.Component.INT : 'ggZZ2e2m_int.csv',
-    msq.Component.BKG : 'ggZZ2e2m_bkg.csv'
-}
-
 def main(args):
-    cmp_sig, cmp_bkg = components[args.signal_process], components[args.background_process]
-
-    data = dataset.AliceDataModule(data_dir = SAMPLE_DIR, 
-                                   background_file = filenames[cmp_bkg], 
-                                   background_xs = xs[cmp_bkg],
-                                   signal_component = cmp_sig,
-                                   background_component = cmp_bkg,
+    dm = jointlikelihood.AliceDataModule(
+                                   filepath = args.events[0], 
+                                   numerator_component = components[args.numerator_process],
+                                   denominator_component = components[args.denominator_process],
                                    sample_size = args.sample_size,
                                    batch_size = args.batch_size,
                                    random_state = args.random_state)
 
-    model_alice = model.ALICE(args.n_features, args.n_layers, args.n_nodes, args.learning_rate)
+    model_alice = alice.ALICE(len(args.features), args.n_layers, args.n_nodes, args.learning_rate)
 
     # save best-two models based on validation loss
     model_checkpoint_callback = ModelCheckpoint(
-        save_top_k=2,
+        save_top_k=3,
         monitor="val_loss",
         mode="min",
         dirpath="checkpoints/",
         filename="checkpoint-alice-{epoch:02d}-{val_loss:.2f}",
     )
 
-    trainer = Trainer(accelerator=args.accelerator, max_epochs=100, callbacks=[model_checkpoint_callback], logger=CSVLogger('.'))
+    trainer = Trainer(accelerator=args.accelerator, max_epochs=200, callbacks=[model_checkpoint_callback], logger=CSVLogger('.'))
 
-    trainer.fit(model_alice, datamodule=data)
+    trainer.fit(model_alice, datamodule=dm)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Train an ALICE model")
-    parser.add_argument('--n-features', type=int, default=9, help='Number of features')
+    parser.add_argument('--events', type=str, nargs='+', required=True, help='Sample filepath')
+    parser.add_argument('--features', type=str, nargs='+', default= ['cth_star', 'cth_1', 'cth_2', 'phi_1', 'phi', 'Z1_mass', 'Z2_mass', '4l_mass', '4l_rapidity'], help='Features to train on')
     parser.add_argument('--n-layers', type=int, default=10, help='Number of layers')
     parser.add_argument('--n-nodes', type=int, default=100, help='Number of hidden nodes')
-    parser.add_argument('--signal-process', type=str, default='sig', help='Signal process')
-    parser.add_argument('--background-process', type=str, default='bkg', help='Background process')
+    parser.add_argument('--numerator-process', type=str, default='sig', help='Signal process')
+    parser.add_argument('--denominator-process', type=str, default='bkg', help='Background process')
     parser.add_argument('--sample-size', type=int, default=10000, help='Number of hidden nodes')
     parser.add_argument('--batch-size', type=int, default=1024, help='Learning rate')
     parser.add_argument('--random-state', type=int, default=42, help='Random state')

@@ -3,10 +3,9 @@ import argparse
 import torch
 from lightning import Trainer
 from lightning.pytorch.callbacks import ModelCheckpoint
-from lightning.pytorch.loggers import CSVLogger
 
 from physics.simulation import msq
-from alice import dataset, model
+from rolypoly import dataset, model
 
 torch.set_float32_matmul_precision('medium')
 
@@ -34,18 +33,18 @@ filenames = {
 }
 
 def main(args):
-    cmp_sig, cmp_bkg = components[args.signal_process], components[args.background_process]
+    cmp = components[args.process]
 
-    data = dataset.AliceDataModule(data_dir = SAMPLE_DIR, 
-                                   background_file = filenames[cmp_bkg], 
-                                   background_xs = xs[cmp_bkg],
-                                   signal_component = cmp_sig,
-                                   background_component = cmp_bkg,
-                                   sample_size = args.sample_size,
-                                   batch_size = args.batch_size,
-                                   random_state = args.random_state)
+    data = dataset.RolypolyDataModule(data_dir = SAMPLE_DIR, 
+                                      sample_file = filenames[cmp], 
+                                      sample_xs = xs[cmp],
+                                      sample_baseline = cmp,
+                                      coefficient_index = args.coefficient,
+                                      sample_size = args.sample_size,
+                                      batch_size = args.batch_size,
+                                      random_state = args.random_state)
 
-    model_alice = model.ALICE(args.n_features, args.n_layers, args.n_nodes, args.learning_rate)
+    model_rolypoly = model.ROLYPOLY(args.n_features, args.n_layers, args.n_nodes, args.learning_rate)
 
     # save best-two models based on validation loss
     model_checkpoint_callback = ModelCheckpoint(
@@ -53,20 +52,20 @@ def main(args):
         monitor="val_loss",
         mode="min",
         dirpath="checkpoints/",
-        filename="checkpoint-alice-{epoch:02d}-{val_loss:.2f}",
+        filename="checkpoint-rolypoly-{epoch:02d}-{val_loss:.2f}",
     )
 
-    trainer = Trainer(accelerator=args.accelerator, max_epochs=100, callbacks=[model_checkpoint_callback], logger=CSVLogger('.'))
+    trainer = Trainer(accelerator=args.accelerator, max_epochs=100, callbacks=[model_checkpoint_callback])
 
-    trainer.fit(model_alice, datamodule=data)
+    trainer.fit(model_rolypoly, datamodule=data)
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Train an ALICE model")
+    parser = argparse.ArgumentParser(description="Train a ROLYPOLY model")
     parser.add_argument('--n-features', type=int, default=9, help='Number of features')
     parser.add_argument('--n-layers', type=int, default=10, help='Number of layers')
     parser.add_argument('--n-nodes', type=int, default=100, help='Number of hidden nodes')
-    parser.add_argument('--signal-process', type=str, default='sig', help='Signal process')
-    parser.add_argument('--background-process', type=str, default='bkg', help='Background process')
+    parser.add_argument('--process', type=str, default='sbi', help='Process to use')
+    parser.add_argument('--coefficient', type=int, default=1, help='Index of polynomial coefficient {1,2,3,4}')
     parser.add_argument('--sample-size', type=int, default=10000, help='Number of hidden nodes')
     parser.add_argument('--batch-size', type=int, default=1024, help='Learning rate')
     parser.add_argument('--random-state', type=int, default=42, help='Random state')
