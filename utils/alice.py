@@ -4,9 +4,11 @@ import argparse
 import torch
 from lightning import Trainer
 from lightning.pytorch.callbacks import ModelCheckpoint
+from lightning.pytorch.loggers import CSVLogger
 
 from physics.simulation import msq
-from alice import dataset, model
+from models import alice
+from datasets import jointlikelihood
 
 torch.set_float32_matmul_precision('medium')
 
@@ -18,15 +20,15 @@ components = {
 }
 
 def main(args):
-    dm = dataset.AliceDataModule(
-                                   filepath = args.events, 
-                                   numerator_component = components[args.numerator_hypothesis],
-                                   denominator_component = components[args.denominator_hypothesis],
+    dm = jointlikelihood.AliceDataModule(
+                                   filepath = args.events[0], 
+                                   numerator_component = components[args.numerator_process],
+                                   denominator_component = components[args.denominator_process],
                                    sample_size = args.sample_size,
                                    batch_size = args.batch_size,
                                    random_state = args.random_state)
 
-    model = model.ALICE(len(args.features), args.n_layers, args.n_nodes, args.learning_rate)
+    model_alice = alice.ALICE(len(args.features), args.n_layers, args.n_nodes, args.learning_rate)
 
     # save best-two models based on validation loss
     model_checkpoint_callback = ModelCheckpoint(
@@ -37,9 +39,9 @@ def main(args):
         filename="checkpoint-alice-{epoch:02d}-{val_loss:.2f}",
     )
 
-    trainer = Trainer(accelerator=args.accelerator, max_epochs=200, callbacks=[model_checkpoint_callback])
+    trainer = Trainer(accelerator=args.accelerator, max_epochs=200, callbacks=[model_checkpoint_callback], logger=CSVLogger('.'))
 
-    trainer.fit(model, datamodule=dm)
+    trainer.fit(model_alice, datamodule=dm)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Train an ALICE model")

@@ -17,18 +17,19 @@ class AliceDataModule(L.LightningDataModule):
     def __init__(self, filepath: str = '', features = ['cth_star', 'cth_1', 'cth_2', 'phi_1', 'phi', 'Z1_mass', 'Z2_mass', '4l_mass', '4l_rapidity'], numerator_component = msq.Component.SIG, denominator_component = msq.Component.BKG, scaler_path = 'scaler.pkl', sample_size = 10000, offset=0, batch_size: int = 32, random_state: int=None) -> None:
         super().__init__()
 
-        self.filepath = background_file
+        self.filepath = filepath
         self.features = features
         self.numerator_component = numerator_component
         self.denominator_component = denominator_component
         self.sample_size = sample_size
+        self.offset = offset
         self.batch_size = batch_size
         self.random_state = random_state
         self.scaler = StandardScaler()
         self.scaler_path = scaler_path
     
     def prepare_data(self):
-        sample_bkg = sample.from_csv(cross_section=1.0, file_path=self.background_file, n_rows=self.offset+int(self.sample_size*1.2))
+        sample_bkg = sample.from_csv(cross_section=1.0, file_path=self.filepath)
         
         z_cand = zpair.ZPairCandidate(algorithm='leastsquare')
         z_masses = zpair.ZPairMassWindow(z1=(70,115), z2=(70,115))
@@ -56,9 +57,6 @@ class AliceDataModule(L.LightningDataModule):
 
     def val_dataloader(self):
         return DataLoader(self.validation_data, batch_size=self.batch_size)
-    
-    def predict_dataloader(self):
-        return DataLoader(self.prediction_data, batch_size=self.batch_size)
 
 class JointLikelihoodDataset(Dataset):
 
@@ -70,11 +68,12 @@ class JointLikelihoodDataset(Dataset):
         self.X = sample.kinematics[features].to_numpy()
 
         # Get PDF ratios for p(theta_0)/p(theta_1)
-        r = sample.probabilities/sample.reweight(numerator=self.numerator_component, denominator=self.denominator_component).probabilities
+        r = sample.probabilities/sample.reweight(numerator=numerator_component, denominator=denominator_component).probabilities
+
         self.s = (1/(1 + r)).to_numpy()
 
     def __len__(self):
-        return len(self.data)
+        return len(self.s)
 
     def __getitem__(self, index):
         return torch.tensor(self.X[index], dtype=torch.float32), torch.tensor(self.s[index], dtype=torch.float32)
