@@ -1,0 +1,10 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["physics", "datasets", "models"]
+
+[project]
+name = "hstar-trilinear"
+version = "1.0.0"
