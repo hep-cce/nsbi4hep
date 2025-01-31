@@ -3,6 +3,7 @@ import argparse
 import torch
 from lightning import Trainer
 from lightning.pytorch.callbacks import ModelCheckpoint
+from lightning.pytorch.loggers import CSVLogger
 
 from physics.simulation import msq
 from alice import dataset, model
@@ -55,7 +56,7 @@ def main(args):
         filename="checkpoint-alice-{epoch:02d}-{val_loss:.2f}",
     )
 
-    trainer = Trainer(accelerator=args.accelerator, max_epochs=100, callbacks=[model_checkpoint_callback])
+    trainer = Trainer(accelerator=args.accelerator, max_epochs=100, callbacks=[model_checkpoint_callback], logger=CSVLogger('.'))
 
     trainer.fit(model_alice, datamodule=data)
 

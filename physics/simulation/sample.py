@@ -87,9 +87,9 @@ class Process():
     unweighted_events_indices = self.weights.sample(n=n, replace=True, weights=self.weights, random_state=random_state).index
 
     return Process(
-      self.kinematics.loc[unweighted_events_indices],
-      self.components.loc[unweighted_events_indices],
-      pd.Series(np.ones_like(unweighted_events_indices))
+      self.kinematics.loc[unweighted_events_indices].reset_index(drop=True),
+      self.components.loc[unweighted_events_indices].reset_index(drop=True),
+      pd.Series(np.ones_like(unweighted_events_indices)).reset_index(drop=True)
     )
 
   def reweight(self, denominator, numerator):

@@ -5,7 +5,7 @@ import lightning as L
 
 def weighted_BCELoss(pred, target, weight):
     bce_loss = nn.BCELoss(reduction='none')
-    return torch.sum(weight*bce_loss(pred, target))/torch.sum(weight)
+    return torch.sum(weight*bce_loss(pred, target))/len(target)
 
 class ALICE(L.LightningModule):
 
