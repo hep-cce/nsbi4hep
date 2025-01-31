@@ -6,11 +6,12 @@ from sklearn.utils import shuffle
 
 from . import mcfm
 
-def from_csv(cross_section, file_path, n_rows=None):
-  df = pd.read_csv(file_path, nrows=n_rows)
+def from_csv(cross_section=1.0, *, file_path, n_rows=None):
+  df = pd.read_csv(file_path, nrows=n_rows, float_precision='round_trip')
   kinematics = df[mcfm.kinematics]
   components = df[mcfm.components]
   weights = df[mcfm.weight]
+  print(weights.sum())
   weights *= cross_section / weights.sum() 
   return Process(kinematics, components, weights)
 
