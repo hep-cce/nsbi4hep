@@ -39,7 +39,15 @@ def main(args):
         filename="checkpoint-alice-{epoch:02d}-{val_loss:.2f}",
     )
 
-    trainer = Trainer(accelerator=args.accelerator, max_epochs=200, callbacks=[model_checkpoint_callback], logger=CSVLogger('.'))
+    model_best_train_checkpoint_callback = ModelCheckpoint(
+        save_top_k=1,
+        monitor='train_loss',
+        mode='min',
+        dirpath='checkpoints/',
+        filename='checkpoint-alice-train-{epoch:02d}-{train_loss:.2f}'
+    )
+
+    trainer = Trainer(accelerator=args.accelerator, max_epochs=200, callbacks=[model_checkpoint_callback, model_best_train_checkpoint_callback], logger=CSVLogger('.'))
 
     trainer.fit(model_alice, datamodule=dm)
 
