@@ -22,6 +22,7 @@ components = {
 def main(args):
     dm = jointlikelihood.AliceDataModule(
                                    filepath = args.events[0], 
+                                   features = args.features,
                                    numerator_component = components[args.numerator_process],
                                    denominator_component = components[args.denominator_process],
                                    sample_size = args.sample_size,

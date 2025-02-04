@@ -1,3 +1,3 @@
 
-from .balanced import BalancedDataModule
-from .weighted import AliceDataModule, AliceDataset
+from .balanced import BalancedDataModule, BalancedDataset
+from .jointlikelihood import AliceDataModule, JointLikelihoodDataset

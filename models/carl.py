@@ -3,9 +3,11 @@ from torch import nn
 import lightning as L
 
 class CARL(L.LightningModule):
-    def __init__(self, n_features, n_layers, n_nodes):
+    def __init__(self, n_features, n_layers, n_nodes, learning_rate):
         super().__init__()
         self.save_hyperparameters()
+
+        self.lr = learning_rate
 
         # MLP with sigmoid output
         layers = []
@@ -46,5 +48,5 @@ class CARL(L.LightningModule):
 
     def configure_optimizers(self):
         # NAdam optimizer
-        optimizer = torch.optim.NAdam(self.parameters(), lr=1e-3)
+        optimizer = torch.optim.NAdam(self.parameters(), lr=self.lr)
         return optimizer

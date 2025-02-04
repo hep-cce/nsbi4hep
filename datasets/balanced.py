@@ -5,94 +5,83 @@ import numpy as np
 from sklearn.preprocessing import StandardScaler
 from sklearn.utils import shuffle
 import torch
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Dataset
 import lightning as L
 
 from physics.hstar import c6
-from physics.simulation import sample
+from physics.simulation import sample, msq
 from physics.hzz import zpair, zz4l
 
 class BalancedDataModule(L.LightningDataModule):
 
-    def __init__(self, data_dir: str = '', signal_file: str = '', background_file: str = '', sample_size = 10000, batch_size: int = 32, random_state: int=None):
+    def __init__(self, numerator_file: str = '', denominator_file: str = '', features = ['cth_star', 'cth_1', 'cth_2', 'phi_1', 'phi', 'Z1_mass', 'Z2_mass', '4l_mass', '4l_rapidity'], scaler_path = 'scaler.pkl', sample_size = 10000, batch_size: int = 32, random_state: int=None):
         super().__init__()
 
-        self.data_dir = data_dir
-        self.signal_file = signal_file
-        self.background_file = background_file
-        self.random_state = random_state
+        self.numerator_file = numerator_file
+        self.denominator_file = denominator_file
+        self.features = features
+        self.scaler_path = scaler_path
         self.sample_size = sample_size
         self.batch_size = batch_size
+        self.random_state = random_state
 
-        # self.scaler = StandardScaler(with_mean=False)
         self.scaler = StandardScaler()
 
     def prepare_data(self):
-
         # load samples with enough entries to sufficient size
-        sample_sig = sample.from_csv(0.1, os.path.join(self.data_dir, self.signal_file))
-        sample_bkg = sample.from_csv(1.6, os.path.join(self.data_dir, self.background_file))
+        sample_numerator = sample.from_csv(cross_section=0.1, file_path=self.numerator_file)
+        sample_denominator = sample.from_csv(cross_section=1.6, file_path=self.denominator_file)
 
         # apply filters and calculate kinematics
         zcands = zpair.ZPairCandidate(algorithm='leastsquare')
         zmasses = zpair.ZPairMassWindow(z1 = (70,115), z2 = (70,115))
         h4lcp = zz4l.AngularVariables()
         h4lp4 = zz4l.FourLeptonSystem()
-        sample_sig = sample_sig.calculate(zcands).filter(zmasses).calculate(h4lcp).calculate(h4lp4)
-        sample_bkg = sample_bkg.calculate(zcands).filter(zmasses).calculate(h4lcp).calculate(h4lp4)
+        self.sample_numerator = sample_numerator.calculate(zcands).filter(zmasses).calculate(h4lcp).calculate(h4lp4)
+        self.sample_denominator = sample_denominator.calculate(zcands).filter(zmasses).calculate(h4lcp).calculate(h4lp4)
 
-        # shuffle and split into training & validation samples
-        sample_sig_train, sample_sig_val = sample_sig.shuffle(random_state=self.random_state).split(train_size=0.5, val_size=0.5)
-        sample_bkg_train, sample_bkg_val = sample_bkg.shuffle(random_state=self.random_state).split(train_size=0.5, val_size=0.5)
 
-        # unweight signal & background to *same* (i.e. balanced) sample size
-        sample_sig_train = sample_sig_train.unweight(self.sample_size, random_state=self.random_state)
-        sample_bkg_train = sample_bkg_train.unweight(self.sample_size, random_state=self.random_state)
-        sample_sig_val = sample_sig_val.unweight(self.sample_size, random_state=self.random_state)
-        sample_bkg_val = sample_bkg_val.unweight(self.sample_size, random_state=self.random_state)
+    def setup(self, stage: str):
+        if stage =='fit':
+            sample_numerator_train, sample_numerator_val = self.sample_numerator.shuffle(random_state=self.random_state).split(train_size=0.5, val_size=0.5)
+            sample_denominator_train, sample_denominator_val = self.sample_denominator.shuffle(random_state=self.random_state).split(train_size=0.5, val_size=0.5)
 
-        # features
-        observables = ['cth_star', 'cth_1', 'cth_2', 'phi_1', 'phi', 'Z1_mass', 'Z2_mass', '4l_mass', '4l_rapidity']
+            self.training_data = BalancedDataset(sample_numerator_train, sample_denominator_train, self.features, self.sample_size, self.random_state)
+            self.validation_data = BalancedDataset(sample_numerator_val, sample_denominator_val, self.features, self.sample_size, self.random_state)
 
-        # 4l angular observables + mass + rapidity
-        obs_sig_train = sample_sig_train.kinematics[observables].to_numpy()
-        obs_sig_val = sample_sig_val.kinematics[observables].to_numpy()
-        obs_bkg_train = sample_bkg_train.kinematics[observables].to_numpy()
-        obs_bkg_val = sample_bkg_val.kinematics[observables].to_numpy()
-
-        # signal & background
-        X_train = np.concatenate([obs_sig_train,obs_bkg_train])
-        X_val = np.concatenate([obs_sig_val,obs_bkg_val])
-
-        # scale
-        X_train = self.scaler.fit_transform(X_train)
-        with open('scaler.pkl', 'wb') as f:
-            pickle.dump(self.scaler, f)
-        X_val = self.scaler.transform(X_val)
-
-        # y(signal) = 1, y(background) = 0 target tensors
-        y_train = np.concatenate([np.ones(self.sample_size),np.zeros(self.sample_size)])
-        y_val = np.concatenate([np.ones(self.sample_size),np.zeros(self.sample_size)])
-
-        # shuffle features & labels consistently
-        X_train, y_train = shuffle(X_train, y_train, random_state=self.random_state) 
-        X_val, y_val = shuffle(X_train, y_train, random_state=self.random_state) 
-
-        # create (features, target) tensors
-        self.train_data = torch.utils.data.TensorDataset(torch.tensor(X_train,dtype=torch.float32), torch.tensor(y_train,dtype=torch.float32))
-        self.val_data = torch.utils.data.TensorDataset(torch.tensor(X_val,dtype=torch.float32), torch.tensor(y_val,dtype=torch.float32))
+            # Apply Scaler to both datasets after fitting to training data
+            self.training_data.X = self.scaler.fit_transform(self.training_data.X)
+            with open(self.scaler_path, 'wb') as f:
+                pickle.dump(self.scaler, f)
+            self.validation_data.X = self.scaler.transform(self.validation_data.X)
 
     def train_dataloader(self):
-        return DataLoader(self.train_data, batch_size=self.batch_size)
+        return DataLoader(self.training_data, batch_size=self.batch_size)
 
     def val_dataloader(self):
-        return DataLoader(self.val_data, batch_size=self.batch_size)
-
-    def test_dataloader(self):
-        raise NotImplementedError
+        return DataLoader(self.validation_data, batch_size=self.batch_size)
 
     def predict_dataloader(self):
-        raise DataLoader(self.train_data, batch_size=self.batch_size)
+        raise DataLoader(self.training_data, batch_size=self.batch_size)
 
-    def teardown(self, stage: str):
-        pass
+class BalancedDataset(Dataset):
+    def __init__(self, sample_sig, sample_bkg, features, sample_size, random_state=None):
+        super().__init__()
+        sample_sig = sample_sig.unweight(sample_size, random_state=random_state)
+        sample_bkg = sample_bkg.unweight(sample_size, random_state=random_state)
+
+        # Get only required features
+        X_sig = sample_sig.kinematics[features].to_numpy()
+        X_bkg = sample_bkg.kinematics[features].to_numpy()
+
+        self.X = np.concatenate([X_sig, X_bkg])
+
+        self.s = np.concatenate([np.ones(sample_size), np.zeros(sample_size)])
+
+        self.X, self.s = shuffle(self.X, self.s, random_state=random_state)
+    
+    def __len__(self):
+        return len(self.s)
+
+    def __getitem__(self, index):
+        return torch.tensor(self.X[index], dtype=torch.float32), torch.tensor(self.s[index], dtype=torch.float32)

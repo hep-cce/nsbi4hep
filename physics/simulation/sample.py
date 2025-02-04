@@ -82,11 +82,12 @@ class Process():
       train_size /= total_size
       val_size /= total_size
 
+      kinematics_train, kinematics_val, components_train, components_val, weights_train, weights_val = train_test_split(self.kinematics, self.components, self.weights, test_size=val_size, train_size=train_size, shuffle=False)
+      
       # the weights now must be scaled up so the sum of weights remains the cross-section
       weights_train /= train_size
       weights_val /= val_size
-
-      kinematics_train, kinematics_val, components_train, components_val, weights_train, weights_val = train_test_split(self.kinematics, self.components, self.weights, test_size=val_size, train_size=train_size, shuffle=False)
+      
       return Process(
         kinematics_train, components_train, weights_train
       ), Process(

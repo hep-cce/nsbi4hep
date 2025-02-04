@@ -14,7 +14,7 @@ import torch
 
 class AliceDataModule(L.LightningDataModule):
 
-    def __init__(self, filepath: str = '', features = ['cth_star', 'cth_1', 'cth_2', 'phi_1', 'phi', 'Z1_mass', 'Z2_mass', '4l_mass', '4l_rapidity'], numerator_component = msq.Component.SIG, denominator_component = msq.Component.BKG, scaler_path = 'scaler.pkl', sample_size = 10000, offset=0, batch_size: int = 32, random_state: int=None) -> None:
+    def __init__(self, filepath: str = '', features = ['cth_star', 'cth_1', 'cth_2', 'phi_1', 'phi', 'Z1_mass', 'Z2_mass', '4l_mass', '4l_rapidity'], numerator_component = msq.Component.SIG, denominator_component = msq.Component.BKG, scaler_path = 'scaler.pkl', sample_size = 10000, batch_size: int = 32, random_state: int=None) -> None:
         super().__init__()
 
         self.filepath = filepath
@@ -22,7 +22,6 @@ class AliceDataModule(L.LightningDataModule):
         self.numerator_component = numerator_component
         self.denominator_component = denominator_component
         self.sample_size = sample_size
-        self.offset = offset
         self.batch_size = batch_size
         self.random_state = random_state
         self.scaler = StandardScaler()
@@ -43,8 +42,8 @@ class AliceDataModule(L.LightningDataModule):
 
             sample_bkg_train, sample_bkg_val = self.sample_bkg.shuffle(random_state=self.random_state).split(train_size=0.5, val_size=0.5)
 
-            self.training_data = JointLikelihoodDataset(sample_bkg_train, features=self.features, numerator_component=self.numerator_component, denominator_component=self.denominator_component, sample_size=self.sample_size)
-            self.validation_data = JointLikelihoodDataset(sample_bkg_val, features=self.features, numerator_component=self.numerator_component, denominator_component=self.denominator_component, sample_size=self.sample_size)
+            self.training_data = JointLikelihoodDataset(sample_bkg_train, features=self.features, numerator_component=self.numerator_component, denominator_component=self.denominator_component, sample_size=self.sample_size, random_state=self.random_state)
+            self.validation_data = JointLikelihoodDataset(sample_bkg_val, features=self.features, numerator_component=self.numerator_component, denominator_component=self.denominator_component, sample_size=self.sample_size, random_state=self.random_state)
 
             # Apply Scaler to both datasets after fitting to training data
             self.training_data.X = self.scaler.fit_transform(self.training_data.X)
@@ -60,9 +59,9 @@ class AliceDataModule(L.LightningDataModule):
 
 class JointLikelihoodDataset(Dataset):
 
-    def __init__(self, sample, features, sample_size, numerator_component = msq.Component.SIG, denominator_component = msq.Component.BKG,):
+    def __init__(self, sample, features, sample_size, numerator_component = msq.Component.SIG, denominator_component = msq.Component.BKG, random_state=None):
         super().__init__()
-        sample = sample.unweight(sample_size)
+        sample = sample.unweight(sample_size, random_state=random_state)
 
         # Get only required features
         self.X = sample.kinematics[features].to_numpy()
