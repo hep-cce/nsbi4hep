@@ -126,6 +126,38 @@ class FourLeptonSystem():
     def calc_pT(self, *leptons: MomentumObject4D):
         return pd.Series((leptons[0]+leptons[1]+leptons[2]+leptons[3]).pt)
 
+class MandelstamVariables():
+    def __init__(self):
+        """
+        Calculator class that calculates the Mandelstam variables t,u and s=m4l
+        """
+        self.variable_functions = {'mandelstam_s': self.calc_s, 'mandelstam_t': self.calc_t, 'mandelstam_u': self.calc_u}
+
+    def __call__(self, kinematics):
+        g1 = vector.array({'px': kinematics['p1_px'], 'py': kinematics['p1_py'], 'pz': kinematics['p1_pz'], 'E': kinematics['p1_E']})
+        g2 = vector.array({'px': kinematics['p2_px'], 'py': kinematics['p2_py'], 'pz': kinematics['p2_pz'], 'E': kinematics['p2_E']})
+        l1 = vector.array({'px': kinematics['l1_px'], 'py': kinematics['l1_py'], 'pz': kinematics['l1_pz'], 'E': kinematics['l1_E']})
+        l2 = vector.array({'px': kinematics['l2_px'], 'py': kinematics['l2_py'], 'pz': kinematics['l2_pz'], 'E': kinematics['l2_E']})
+        l3 = vector.array({'px': kinematics['l3_px'], 'py': kinematics['l3_py'], 'pz': kinematics['l3_pz'], 'E': kinematics['l3_E']})
+        l4 = vector.array({'px': kinematics['l4_px'], 'py': kinematics['l4_py'], 'pz': kinematics['l4_pz'], 'E': kinematics['l4_E']})
+        
+        Z1 = l1 + l2
+        Z2 = l3 + l4
+
+        results = {}
+        for variable in self.variable_functions.keys():
+            results[variable] = self.variable_functions[variable](g1, g2, Z1, Z2)
+
+        return results
+
+    def calc_s(self, *particles: MomentumObject4D):
+        return pd.Series((particles[2]+particles[3]).mass**2)
+
+    def calc_t(self, *particles: MomentumObject4D):
+        return pd.Series((particles[0]-particles[2]).mass**2)
+
+    def calc_u(self, *particles: MomentumObject4D):
+        return pd.Series((particles[0]-particles[3]).mass**2)
 
 class M4l():
     def __init__(self, m4l_min=None, m4l_max=None):
