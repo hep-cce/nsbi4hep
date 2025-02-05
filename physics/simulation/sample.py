@@ -35,23 +35,23 @@ class Process():
       new_kinematics.loc[:, column_name] = column_series.to_numpy()
 
     return Process(
-      kinematics=new_kinematics,
-      components=self.components.copy(),
-      weights=self.weights.copy()
+      kinematics=new_kinematics.reset_index(drop=True),
+      components=self.components.reset_index(drop=True),
+      weights=self.weights.reset_index(drop=True)
     )
 
   def filter(self, filter):
     accepted_indices = filter(self.kinematics, self.components, self.weights, self.probabilities)
     
     return Process(
-      self.kinematics.iloc[accepted_indices].copy(),
-      self.components.iloc[accepted_indices].copy(),
-      self.weights.iloc[accepted_indices].copy()
+      self.kinematics.iloc[accepted_indices].reset_index(drop=True),
+      self.components.iloc[accepted_indices].reset_index(drop=True),
+      self.weights.iloc[accepted_indices].reset_index(drop=True)
     )
 
   def shuffle(self, random_state=None):
     shuffled_kinematics, shuffled_components, shuffled_weights = shuffle(self.kinematics, self.components, self.weights, random_state=random_state)
-    return Process(shuffled_kinematics, shuffled_components, shuffled_weights)
+    return Process(shuffled_kinematics.reset_index(drop=True), shuffled_components.reset_index(drop=True), shuffled_weights.reset_index(drop=True))
   
   def split(self, train_size=1, val_size=1, test_size=None):
 
@@ -70,11 +70,11 @@ class Process():
       weights_val /= val_size
 
       return Process(
-        kinematics_train, components_train, weights_train
+        kinematics_train.reset_index(drop=True), components_train.reset_index(drop=True), weights_train.reset_index(drop=True)
       ), Process(
-        kinematics_val, components_val, weights_val
+        kinematics_val.reset_index(drop=True), components_val.reset_index(drop=True), weights_val.reset_index(drop=True)
       ), Process(
-        kinematics_test, components_test, weights_test
+        kinematics_test.reset_index(drop=True), components_test.reset_index(drop=True), weights_test.reset_index(drop=True)
       )
 
     else:
@@ -89,9 +89,9 @@ class Process():
       weights_val /= val_size
       
       return Process(
-        kinematics_train, components_train, weights_train
+        kinematics_train.reset_index(drop=True), components_train.reset_index(drop=True), weights_train.reset_index(drop=True)
       ), Process(
-        kinematics_val, components_val, weights_val
+        kinematics_val.reset_index(drop=True), components_val.reset_index(drop=True), weights_val.reset_index(drop=True)
       )
 
   def unweight(self, n, random_state=None):
@@ -105,7 +105,7 @@ class Process():
 
   def reweight(self, denominator, numerator):
     reweights = self.weights * self.components[mcfm.component_sm[numerator]] / self.components[mcfm.component_sm[denominator]]
-    return Process(self.kinematics.copy(), self.components.copy(), reweights)
+    return Process(self.kinematics.reset_index(drop=True), self.components.reset_index(drop=True), reweights.reset_index(drop=True))
   
   def __getitem__(self, item):
     return Process(
