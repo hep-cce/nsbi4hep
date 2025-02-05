@@ -29,7 +29,7 @@ def main(args):
         monitor="val_loss",
         mode="min",
         dirpath="checkpoints/",
-        filename="checkpoint-alice-{epoch:02d}-{val_loss:.2f}",
+        filename="checkpoint-carl-{epoch:02d}-{val_loss:.2f}",
     )
 
     model_best_train_checkpoint_callback = ModelCheckpoint(
@@ -37,7 +37,7 @@ def main(args):
         monitor='train_loss',
         mode='min',
         dirpath='checkpoints/',
-        filename='checkpoint-alice-train-{epoch:02d}-{train_loss:.2f}'
+        filename='checkpoint-carl-train-{epoch:02d}-{train_loss:.2f}'
     )
 
     trainer = Trainer(accelerator=args.accelerator, max_epochs=200, callbacks=[model_checkpoint_callback, model_best_train_checkpoint_callback], logger=CSVLogger('.'))

@@ -99,7 +99,7 @@ class JointLikelihoodParameterizedDataset(Dataset):
 
         X = np.concatenate([X, c6_column], axis=1)
 
-        probabilities_numerator = c6_probabilities.reshape((c6_probabilities.shape[0]*c6_probabilities.shape[1],))
+        probabilities_numerator = c6_probabilities.flatten()
         probabilities_denominator = np.tile(sample_bkg.probabilities.to_numpy(), len(c6_values))
 
         sample_weights = pd.Series((probabilities_numerator + probabilities_denominator)/2*sample_size).reset_index(drop=True)
