@@ -1,5 +1,8 @@
 __pycache__/
+*.egg-info/
 
+raven/
+containers/
 run/
 
 inference/
@@ -9,9 +12,9 @@ venv/
 venv_*/
 **/lightning_logs/
 
-jobs/alice
-jobs/rolypoly
-jobs/carl
+jobs/*
+jobs/*/
+
 *.dat
 *.csv
 *.pdf
