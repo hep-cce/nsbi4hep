@@ -22,7 +22,8 @@ class Process():
     self.components = components
     # HACK: to avoid negative weights
     # only e.g. 2/2M events have infinitesimally-small negative weights due to numerical precision
-    weights[weights < 0] = 0.0
+    if weights.sum() > 0.0:
+      weights[weights < 0] = 0.0
     self.weights = weights
     self.probabilities = weights / weights.sum()
 
@@ -51,7 +52,11 @@ class Process():
 
   def shuffle(self, random_state=None):
     shuffled_kinematics, shuffled_components, shuffled_weights = shuffle(self.kinematics, self.components, self.weights, random_state=random_state)
-    return Process(shuffled_kinematics.reset_index(drop=True), shuffled_components.reset_index(drop=True), shuffled_weights.reset_index(drop=True))
+    return Process(
+      shuffled_kinematics.reset_index(drop=True), 
+      shuffled_components.reset_index(drop=True), 
+      shuffled_weights.reset_index(drop=True)
+    )
   
   def split(self, train_size=1, val_size=1, test_size=None):
 
@@ -105,7 +110,11 @@ class Process():
 
   def reweight(self, denominator, numerator):
     reweights = self.weights * self.components[mcfm.component_sm[numerator]] / self.components[mcfm.component_sm[denominator]]
-    return Process(self.kinematics.reset_index(drop=True), self.components.reset_index(drop=True), reweights.reset_index(drop=True))
+    return Process(
+      self.kinematics.reset_index(drop=True), 
+      self.components.reset_index(drop=True), 
+      reweights.reset_index(drop=True)
+    )
   
   def __getitem__(self, item):
     return Process(
