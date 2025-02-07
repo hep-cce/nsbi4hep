@@ -5,7 +5,7 @@ import torch
 import os
 import pickle
 
-from physics.simulation import events, msq
+from physics.simulation import sample, msq
 from physics.hzz import zpair, zz4l
 
 import numpy as np

@@ -3,7 +3,7 @@ import os, pickle
 import sys
 sys.path.insert(1,'..')
 
-from physics.simulation import events, msq
+from physics.simulation import sample, msq
 from physics.hzz import zpair, zz4l
 from physics.hstar import c6
 

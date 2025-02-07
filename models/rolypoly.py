@@ -15,16 +15,16 @@ class ROLYPOLY(L.LightningModule):
         layers.append(nn.Sequential(nn.Linear(n_features, n_nodes), nn.SiLU()))
         for _ in range(n_layers):
             layers.append(nn.Sequential(nn.Linear(n_nodes, n_nodes), nn.SiLU()))
-        layers.append(nn.Sequential(nn.Linear(n_nodes, 1), nn.Sigmoid()))
+        layers.append(nn.Linear(n_nodes, 1))
         self.model = nn.Sequential(*layers)
 
         def init_weights(m):
             if isinstance(m, nn.Linear):
                 torch.nn.init.xavier_uniform_(m.weight)
-                m.bias.data.fill_(0.01)
+                m.bias.data.fill_(0.0)
         self.model.apply(init_weights)
 
-        self.loss_fn = nn.BCELoss()
+        self.loss_fn = nn.MSELoss()
 
     def forward(self, x):
         return self.model(x)
