@@ -1,1 +1,1 @@
-from .events import from_csv, Process
+from .sample import from_csv, Process

@@ -8,12 +8,12 @@ from lightning.pytorch.loggers import CSVLogger
 
 from physics.simulation import msq
 from models import carl
-from datasets import balanced_refactor
+from datasets import balanced
 
 torch.set_float32_matmul_precision('medium')
 
 def main(args):
-    dm = balanced_refactor.BalancedDataModule(
+    dm = balanced.BalancedDataModule(
                                    numerator_file = args.numerator_events[0],
                                    denominator_file = args.denominator_events[0], 
                                    features = args.features,
