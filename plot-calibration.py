@@ -7,7 +7,7 @@ from models import ALICE
 import os
 import pickle
 
-from physics.simulation import events
+from physics.simulation import sample
 from physics.simulation import msq
 
 import numpy as np
