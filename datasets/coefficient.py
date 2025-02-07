@@ -8,13 +8,9 @@ from physics.hzz import zpair, zz4l
 from physics.hstar import c6
 
 from sklearn.preprocessing import StandardScaler
-from sklearn.model_selection import train_test_split
-
-import numpy as np
-import pandas as pd
 
 import lightning as L
-from torch.utils.data import DataLoader, random_split, Dataset
+from torch.utils.data import DataLoader, Dataset
 import torch
 
 class RolypolyDataModule(L.LightningDataModule):
@@ -35,21 +31,21 @@ class RolypolyDataModule(L.LightningDataModule):
         self.coefficient_index = coefficient_index
     
     def prepare_data(self):
-        sample = events.from_csv(cross_section=1.0, file_path=self.filepath)
+        events = sample.from_csv(cross_section=1.0, file_path=self.filepath)
         
         z_cand = zpair.ZPairCandidate(algorithm='truth')
         z_masses = zpair.ZPairMassWindow(z1=(70,115), z2=(70,115))
         mandelstam = zz4l.MandelstamVariables()
 
-        self.sample = sample.calculate(z_cand).filter(z_masses).calculate(mandelstam)
+        self.events = events.calculate(z_cand).filter(z_masses).calculate(mandelstam)
 
     def setup(self, stage: str):
         if stage=='fit':
 
-            sample_train, sample_val = self.sample.shuffle(random_state=self.random_state).split(train_size=0.5, val_size=0.5)
+            events_train, events_val = self.events.shuffle(random_state=self.random_state).split(train_size=0.5, val_size=0.5)
 
-            self.training_data = CoefficientDataset(sample_train, features=self.features, coefficient_index=self.coefficient_index, component=self.component, sample_size=self.sample_size, random_state=self.random_state)
-            self.validation_data = CoefficientDataset(sample_val, features=self.features, coefficient_index=self.coefficient_index, component=self.component, sample_size=self.sample_size, random_state=self.random_state)
+            self.training_data = CoefficientDataset(events_train, features=self.features, coefficient_index=self.coefficient_index, component=self.component, sample_size=self.sample_size, random_state=self.random_state)
+            self.validation_data = CoefficientDataset(events_val, features=self.features, coefficient_index=self.coefficient_index, component=self.component, sample_size=self.sample_size, random_state=self.random_state)
 
             # Apply Scaler to both datasets after fitting to training data
             self.training_data.X = self.X_scaler.fit_transform(self.training_data.X)
@@ -70,14 +66,14 @@ class RolypolyDataModule(L.LightningDataModule):
 
 class CoefficientDataset(Dataset):
 
-    def __init__(self, sample, features, coefficient_index, sample_size, component = msq.Component.SBI, random_state=None):
+    def __init__(self, events, features, coefficient_index, sample_size, component = msq.Component.SBI, random_state=None):
         super().__init__()
-        c6_mod = c6.Modifier(baseline=component, sample=sample, c6_values=[-5,-1,0,1,5]) if component!=msq.Component.INT else c6.Modifier(baseline=component, sample=sample, c6_values=[-5,0,5])
+        c6_mod = c6.Modifier(baseline=component, sample=events, c6_values=[-5,-1,0,1,5]) if component!=msq.Component.INT else c6.Modifier(baseline=component, sample=sample, c6_values=[-5,0,5])
         coefficient = c6_mod.coefficients[:,coefficient_index]
         
-        unweighted_indices = sample.weights.sample(n=sample_size, replace=True, weights=sample.weights, random_state=random_state).index
+        unweighted_indices = events.weights.sample(n=sample_size, replace=True, weights=sample.weights, random_state=random_state).index
         
-        self.X = sample.kinematics[features].to_numpy()[unweighted_indices]
+        self.X = events.kinematics[features].to_numpy()[unweighted_indices]
         self.y = coefficient[unweighted_indices]
 
     def __len__(self):
