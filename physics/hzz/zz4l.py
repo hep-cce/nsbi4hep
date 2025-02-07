@@ -151,13 +151,13 @@ class MandelstamVariables():
         return results
 
     def calc_s(self, *particles: MomentumObject4D):
-        return pd.Series((particles[2]+particles[3]).mass**2)
+        return pd.Series((particles[2]+particles[3]).mass2)
 
     def calc_t(self, *particles: MomentumObject4D):
-        return pd.Series((particles[0]-particles[2]).mass**2)
+        return pd.Series((particles[0]-particles[2]).mass2)
 
     def calc_u(self, *particles: MomentumObject4D):
-        return pd.Series((particles[0]-particles[3]).mass**2)
+        return pd.Series((particles[0]-particles[3]).mass2)
 
 class M4l():
     def __init__(self, m4l_min=None, m4l_max=None):

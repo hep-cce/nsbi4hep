@@ -7,7 +7,7 @@ from models import ALICE
 import os
 import pickle
 
-from physics.simulation import sample
+from physics.simulation import events
 from physics.simulation import msq
 
 import numpy as np
@@ -37,7 +37,7 @@ JOB_DIR = '/u/taepa/higgs-offshell-interpretation/run/carl-100k/'
 # model = CARL.load_from_checkpoint('/u/taepa/higgs-offshell-interpretation/run/carl-100k/checkpoints/checkpoint-epoch=44-val_loss=0.45.ckpt', n_features=9, n_layers=10, n_nodes=100)
 # model = CARL.load_from_checkpoint('/u/taepa/higgs-offshell-interpretation/run/carl-sbi_vs_bkg/checkpoints/checkpoint-epoch=14-val_loss=0.69.ckpt', n_features=9, n_layers=10, n_nodes=100)
 
-sig = sample.from_csv(0.2, SAMPLE_FILEPATH['sig'], n_rows = 10000)
+sig = events.from_csv(0.2, SAMPLE_FILEPATH['sig'], n_rows = 10000)
 # sig = sample.from_csv(0.2, SAMPLE_FILEPATH['sbi'], n_rows = 10000)
 
 from physics.hzz import zpair, zz4l

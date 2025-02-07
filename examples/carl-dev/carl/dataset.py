@@ -12,7 +12,7 @@ from torch.utils.data import DataLoader
 import lightning as L
 
 from physics.hstar import c6
-from physics.simulation import sample
+from physics.simulation import events
 from physics.hzz import zpair, zz4l
 
 class BalancedDataModule(L.LightningDataModule):
@@ -33,8 +33,8 @@ class BalancedDataModule(L.LightningDataModule):
     def prepare_data(self):
 
         # load samples with enough entries to sufficient size
-        sample_sig = sample.from_csv(0.1, os.path.join(self.data_dir, self.signal_file))
-        sample_bkg = sample.from_csv(1.6, os.path.join(self.data_dir, self.background_file))
+        sample_sig = events.from_csv(0.1, os.path.join(self.data_dir, self.signal_file))
+        sample_bkg = events.from_csv(1.6, os.path.join(self.data_dir, self.background_file))
 
         # apply filters and calculate kinematics
         zcands = zpair.ZPairCandidate(algorithm='leastsquare')

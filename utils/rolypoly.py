@@ -24,7 +24,7 @@ def main(args):
                                    filepath = args.events[0], 
                                    features = args.features,
                                    coefficient_index = args.coefficient_index,
-                                   component = components[args.process],
+                                   component = components[args.component],
                                    sample_size = args.sample_size,
                                    batch_size = args.batch_size,
                                    random_state = args.random_state)
@@ -58,7 +58,7 @@ if __name__ == "__main__":
     parser.add_argument('--features', type=str, nargs='+', default= ['cth_star', 'cth_1', 'cth_2', 'phi_1', 'phi', 'Z1_mass', 'Z2_mass', '4l_mass', '4l_rapidity'], help='Features to train on')
     parser.add_argument('--n-layers', type=int, default=10, help='Number of layers')
     parser.add_argument('--n-nodes', type=int, default=100, help='Number of hidden nodes')
-    parser.add_argument('--process', type=str, default='sbi', help='Process')
+    parser.add_argument('--component', type=str, default='sbi', help='Process')
     parser.add_argument('--coefficient-index', type=int, default=1, help='Index of polynomial coefficient')
     parser.add_argument('--sample-size', type=int, default=10000, help='Number of hidden nodes')
     parser.add_argument('--batch-size', type=int, default=1024, help='Learning rate')

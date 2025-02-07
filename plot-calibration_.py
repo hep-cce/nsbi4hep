@@ -5,7 +5,7 @@ import torch
 import os
 import pickle
 
-from physics.simulation import sample, msq
+from physics.simulation import events, msq
 from physics.hzz import zpair, zz4l
 
 import numpy as np
@@ -57,7 +57,7 @@ def main(args):
   h4lcp = zz4l.AngularVariables()
   zcands = zpair.ZPairCandidate(algorithm='leastsquare')
   zmasses = zpair.ZPairMassWindow(z1 = (70,115), z2 = (70,115))
-  sig = sample.from_csv(0.2, args., n_rows = 10000).calculate(zcands).filter(zmasses).calculate(h4lcp).calculate(h4lp4)
+  sig = events.from_csv(0.2, args., n_rows = 10000).calculate(zcands).filter(zmasses).calculate(h4lcp).calculate(h4lp4)
 
   from physics.hzz import zpair, zz4l
   h4lp4 = zz4l.FourLeptonSystem()
