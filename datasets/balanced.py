@@ -9,7 +9,7 @@ from torch.utils.data import DataLoader, Dataset
 import lightning as L
 
 from physics.hstar import c6
-from physics.simulation import sample, msq
+from physics.simulation import mcfm, msq
 from physics.hzz import zpair, zz4l
 
 class BalancedDataModule(L.LightningDataModule):
