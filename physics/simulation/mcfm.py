@@ -6,7 +6,7 @@ from sklearn.utils import shuffle
 
 from .msq import Component
 
-kinematics = [
+mcfm_kinematics = [
   'p1_px','p1_py','p1_pz','p1_E',
   'p2_px','p2_py','p2_pz','p2_E',
   'p3_px','p3_py','p3_pz','p3_E',
@@ -15,9 +15,9 @@ kinematics = [
   'p6_px','p6_py','p6_pz','p6_E',
 ]
 
-weight = 'wt'
+mcfm_weight = 'wt'
 
-components = [
+mcfm_components = [
   'msq_sbi_sm', 'msq_sig_sm', 'msq_bkg_sm', 'msq_int_sm',
   'msq_sig_c6_1', 'msq_int_c6_1', 'msq_sbi_c6_1',
   'msq_sig_c6_2', 'msq_int_c6_2', 'msq_sbi_c6_2',
@@ -42,14 +42,14 @@ components = [
   'msq_sig_c6_21', 'msq_int_c6_21', 'msq_sbi_c6_21'
 ]
 
-component_sm = {
+mcfm_component_sm = {
   Component.SBI: 'msq_sbi_sm',
   Component.SIG: 'msq_sig_sm',
   Component.BKG: 'msq_bkg_sm',
   Component.INT: 'msq_int_sm'
 }
 
-component_c6 = {
+mcfm_component_c6 = {
   Component.SBI: {
     -10.0: 'msq_sbi_c6_1',
     -9.0: 'msq_sbi_c6_2',
@@ -146,9 +146,9 @@ component_c6 = {
 
 def from_csv(cross_section=1.0, *, file_path, n_rows=None):
   df = pd.read_csv(file_path, nrows=n_rows, float_precision='round_trip')
-  kinematics = df[mcfm.kinematics]
-  components = df[mcfm.components]
-  weights = df[mcfm.weight]
+  kinematics = df[mcfm_kinematics]
+  components = df[mcfm_components]
+  weights = df[mcfm_weight]
   print(weights.sum())
   weights *= cross_section / weights.sum() 
   return Process(kinematics, components, weights)
@@ -247,7 +247,7 @@ class Process():
     )
 
   def reweight(self, denominator, numerator):
-    reweights = self.weights * self.components[mcfm.component_sm[numerator]] / self.components[mcfm.component_sm[denominator]]
+    reweights = self.weights * self.components[mcfm_component_sm[numerator]] / self.components[mcfm_component_sm[denominator]]
     return Process(
       self.kinematics.reset_index(drop=True), 
       self.components.reset_index(drop=True), 
