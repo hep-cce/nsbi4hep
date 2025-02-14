@@ -34,26 +34,25 @@ class AliceDataModule(L.LightningDataModule):
         self.c6_values = c6_values
     
     def prepare_data(self):
-        sample_bkg = events.from_csv(cross_section=1.0, file_path=self.filepath)
+        events = sample.from_csv(cross_section=1.0, file_path=self.filepath)
         
         z_cand = zpair.ZPairCandidate(algorithm='leastsquare')
         z_masses = zpair.ZPairMassWindow(z1=(70,115), z2=(70,115))
         angles = zz4l.AngularVariables()
         four_lepton_vars = zz4l.FourLeptonSystem()
 
-        self.sample_bkg = sample_bkg.calculate(z_cand).filter(z_masses).calculate(angles).calculate(four_lepton_vars)
+        self.events = events.calculate(z_cand).filter(z_masses).calculate(angles).calculate(four_lepton_vars)
 
     def setup(self, stage: str):
         if stage=='fit':
-
-            sample_bkg_train, sample_bkg_val = self.sample_bkg.shuffle(random_state=self.random_state).split(train_size=0.5, val_size=0.5)
+            events_train, events_val = self.events.shuffle(random_state=self.random_state).split(train_size=0.5, val_size=0.5)
 
             if self.c6_values is None:
-                self.training_data = JointLikelihoodDataset(sample_bkg_train, features=self.features, numerator_component=self.numerator_component, denominator_component=self.denominator_component, sample_size=self.sample_size, random_state=self.random_state)
-                self.validation_data = JointLikelihoodDataset(sample_bkg_val, features=self.features, numerator_component=self.numerator_component, denominator_component=self.denominator_component, sample_size=self.sample_size, random_state=self.random_state)
+                self.training_data = JointLikelihoodDataset(events_train, features=self.features, numerator_component=self.numerator_component, denominator_component=self.denominator_component, sample_size=self.sample_size, random_state=self.random_state)
+                self.validation_data = JointLikelihoodDataset(events_val, features=self.features, numerator_component=self.numerator_component, denominator_component=self.denominator_component, sample_size=self.sample_size, random_state=self.random_state)
             else:
-                self.training_data = JointLikelihoodParameterizedDataset(sample_bkg_train, features=self.features, c6_values=self.c6_values, numerator_component=self.numerator_component, denominator_component=self.denominator_component, sample_size=self.sample_size, random_state=self.random_state)
-                self.validation_data = JointLikelihoodParameterizedDataset(sample_bkg_val, features=self.features, c6_values=self.c6_values, numerator_component=self.numerator_component, denominator_component=self.denominator_component, sample_size=self.sample_size, random_state=self.random_state)
+                self.training_data = JointLikelihoodParameterizedDataset(events_train, features=self.features, c6_values=self.c6_values, numerator_component=self.numerator_component, denominator_component=self.denominator_component, sample_size=self.sample_size, random_state=self.random_state)
+                self.validation_data = JointLikelihoodParameterizedDataset(events_val, features=self.features, c6_values=self.c6_values, numerator_component=self.numerator_component, denominator_component=self.denominator_component, sample_size=self.sample_size, random_state=self.random_state)
 
             # Apply Scaler to both datasets after fitting to training data
             self.training_data.X = self.scaler.fit_transform(self.training_data.X)
