@@ -33,7 +33,7 @@ class Process():
     new_columns = calculator(new_kinematics)
     for column_name, column_series in new_columns.items():
       # IMPORTANT: to_numpy() ignores pandas indexing, since DataFrame and Series might mis-match
-      new_kinematics.loc[:, column_name] = column_series.to_numpy()
+      new_kinematics.loc[:, column_name] = column_series
 
     return Process(
       kinematics=new_kinematics.reset_index(drop=True),

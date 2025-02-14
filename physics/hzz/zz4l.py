@@ -29,7 +29,7 @@ class AngularVariables():
     def calc_cth_star(self, *leptons: MomentumObject4D):
         Z1 = leptons[0] + leptons[1]
         H = Z1 + leptons[2] + leptons[3]
-        return pd.Series(Z1.boost(-H).to_3D().unit().z)
+        return Z1.boost(-H).to_3D().unit().z
 
     def calc_cth_1(self, *leptons: MomentumObject4D):
         Z1 = leptons[0]+leptons[1]
@@ -41,7 +41,7 @@ class AngularVariables():
 
         z2_in_Z1 = Z2_h.boost(-Z1_h).to_3D()
         l1 = leptons[0].boost(-Z1_h)
-        return pd.Series(-z2_in_Z1.dot(l1.to_3D())/np.abs(z2_in_Z1.mag*l1.to_3D().mag))
+        return -z2_in_Z1.dot(l1.to_3D())/np.abs(z2_in_Z1.mag*l1.to_3D().mag)
 
     def calc_cth_2(self, *leptons: MomentumObject4D):
         Z1 = leptons[0]+leptons[1]
@@ -53,7 +53,7 @@ class AngularVariables():
 
         z1_in_Z2 = Z1_h.boost(-Z2_h).to_3D()
         l3 = leptons[2].boost(-Z2_h)
-        return pd.Series(-z1_in_Z2.dot(l3.to_3D())/np.abs(z1_in_Z2.mag*l3.to_3D().mag))
+        return -z1_in_Z2.dot(l3.to_3D())/np.abs(z1_in_Z2.mag*l3.to_3D().mag)
 
     def calc_phi_1(self, *leptons: MomentumObject4D):
         Z1 = leptons[0]+leptons[1]
@@ -71,7 +71,7 @@ class AngularVariables():
         n12 = l1_h.cross(l2_h).unit() # Normal vector of the plane in which the Z1 decay takes place
         nscp = nz.cross(z1).unit() # Normal vector of the plane in which the H -> Z1, Z2 takes place
             
-        return pd.Series(z1.dot(n12.cross(nscp))/np.abs(z1.dot(n12.cross(nscp)))*np.arccos(n12.dot(nscp)))
+        return z1.dot(n12.cross(nscp))/np.abs(z1.dot(n12.cross(nscp)))*np.arccos(n12.dot(nscp))
     
     def calc_phi(self, *leptons: MomentumObject4D):
         Z1 = leptons[0]+leptons[1]
@@ -88,13 +88,13 @@ class AngularVariables():
         n12 = l1_h.cross(l2_h).unit() # Normal vector of the plane in which the Z1 decay takes place
         n34 = l3_h.cross(l4_h).unit() # Normal vector of the plane in which the Z2 decay takes place
 
-        return pd.Series(z1.dot(n12.cross(n34))/np.abs(z1.dot(n12.cross(n34)))*np.arccos(-n12.dot(n34)))
+        return z1.dot(n12.cross(n34))/np.abs(z1.dot(n12.cross(n34)))*np.arccos(-n12.dot(n34))
 
     def calc_mZ1(self, *leptons: MomentumObject4D):
-        return pd.Series((leptons[0]+leptons[1]).mass)
+        return (leptons[0]+leptons[1]).mass
 
     def calc_mZ2(self, *leptons: MomentumObject4D):
-        return pd.Series((leptons[2]+leptons[3]).mass)
+        return (leptons[2]+leptons[3]).mass
     
 
 class FourLeptonSystem():
@@ -118,13 +118,13 @@ class FourLeptonSystem():
         return results
 
     def calc_m4l(self, *leptons: MomentumObject4D):
-        return pd.Series((leptons[0]+leptons[1]+leptons[2]+leptons[3]).mass)
+        return (leptons[0]+leptons[1]+leptons[2]+leptons[3]).mass
 
     def calc_y4l(self, *leptons: MomentumObject4D):
-        return pd.Series((leptons[0]+leptons[1]+leptons[2]+leptons[3]).rapidity)
+        return (leptons[0]+leptons[1]+leptons[2]+leptons[3]).rapidity
     
     def calc_pT(self, *leptons: MomentumObject4D):
-        return pd.Series((leptons[0]+leptons[1]+leptons[2]+leptons[3]).pt)
+        return (leptons[0]+leptons[1]+leptons[2]+leptons[3]).pt
 
 class MandelstamVariables():
     def __init__(self):
@@ -151,13 +151,13 @@ class MandelstamVariables():
         return results
 
     def calc_s(self, *particles: MomentumObject4D):
-        return pd.Series((particles[2]+particles[3]).mass2)
+        return (particles[2]+particles[3]).mass2
 
     def calc_t(self, *particles: MomentumObject4D):
-        return pd.Series((particles[0]-particles[2]).mass2)
+        return (particles[0]-particles[2]).mass2
 
     def calc_u(self, *particles: MomentumObject4D):
-        return pd.Series((particles[0]-particles[3]).mass2)
+        return (particles[0]-particles[3]).mass2
 
 class M4l():
     def __init__(self, m4l_min=None, m4l_max=None):

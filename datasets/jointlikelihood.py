@@ -56,8 +56,9 @@ class AliceDataModule(L.LightningDataModule):
 
             # Apply Scaler to both datasets after fitting to training data
             self.training_data.X = self.scaler.fit_transform(self.training_data.X)
-            with open(self.scaler_path, 'wb') as f:
-                pickle.dump(self.scaler, f)
+            if self.scaler_path is not None:
+                with open(self.scaler_path, 'wb') as f:
+                    pickle.dump(self.scaler, f)
             self.validation_data.X = self.scaler.transform(self.validation_data.X)
             
     def train_dataloader(self):
@@ -68,15 +69,15 @@ class AliceDataModule(L.LightningDataModule):
 
 class JointLikelihoodDataset(Dataset):
 
-    def __init__(self, sample, features, sample_size, numerator_component = msq.Component.SIG, denominator_component = msq.Component.BKG, random_state=None):
+    def __init__(self, events, features, sample_size, numerator_component = msq.Component.SIG, denominator_component = msq.Component.BKG, random_state=None):
         super().__init__()
-        sample = sample.unweight(sample_size, random_state=random_state)
+        events = events.unweight(sample_size, random_state=random_state)
 
         # Get only required features
-        self.X = sample.kinematics[features].to_numpy()
+        self.X = events.kinematics[features].to_numpy()
 
         # Get PDF ratios for p(theta_0)/p(theta_1)
-        r = sample.probabilities/sample.reweight(numerator=numerator_component, denominator=denominator_component).probabilities
+        r = events.probabilities/events.reweight(numerator=numerator_component, denominator=denominator_component).probabilities
 
         self.s = (1/(1 + r)).to_numpy()
 
@@ -88,18 +89,18 @@ class JointLikelihoodDataset(Dataset):
     
 class JointLikelihoodParameterizedDataset(Dataset):
 
-    def __init__(self, sample_bkg, features, c6_values, sample_size, numerator_component = msq.Component.SIG, denominator_component = msq.Component.BKG, random_state=None):
+    def __init__(self, events, features, c6_values, sample_size, numerator_component = msq.Component.SIG, denominator_component = msq.Component.BKG, random_state=None):
         super().__init__()
-        c6_mod = c6.Modifier(baseline=numerator_component, sample=sample_bkg, c6_values=[-5,-1,0,1,5]) if numerator_component != msq.Component.INT else c6.Modifier(baseline=numerator_component, sample=sample_bkg, c6_values=[-5,0,5])
+        c6_mod = c6.Modifier(baseline=numerator_component, events=events, c6_values=[-5,-1,0,1,5]) if numerator_component != msq.Component.INT else c6.Modifier(baseline=numerator_component, events=events, c6_values=[-5,0,5])
         _, c6_probabilities = c6_mod.modify(c6_values)
 
-        X = np.tile(sample_bkg.kinematics[features].to_numpy(), (len(c6_values),1))
-        c6_column = np.repeat(c6_values, len(sample_bkg.kinematics), axis=0)[:,np.newaxis]
+        X = np.tile(events.kinematics[features].to_numpy(), (len(c6_values),1))
+        c6_column = np.repeat(c6_values, len(events.kinematics), axis=0)[:,np.newaxis]
 
         X = np.concatenate([X, c6_column], axis=1)
 
         probabilities_numerator = c6_probabilities.flatten()
-        probabilities_denominator = np.tile(sample_bkg.probabilities.to_numpy(), len(c6_values))
+        probabilities_denominator = np.tile(events.probabilities.to_numpy(), len(c6_values))
 
         sample_weights = pd.Series((probabilities_numerator + probabilities_denominator)/2*sample_size).reset_index(drop=True)
         
