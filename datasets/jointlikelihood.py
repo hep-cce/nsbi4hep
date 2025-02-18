@@ -1,8 +1,5 @@
 import os, pickle
 
-import sys
-sys.path.insert(1,'..')
-
 from physics.simulation import mcfm, msq
 from physics.hzz import zpair, zz4l
 from physics.hstar import c6
