@@ -27,7 +27,8 @@ class ZPairCandidate:
                     'l2_px': kinematics['p4_px'].to_numpy(), 'l2_py': kinematics['p4_py'].to_numpy(), 'l2_pz': kinematics['p4_pz'].to_numpy(), 'l2_E': kinematics['p4_E'].to_numpy(),
                     'l3_px': kinematics['p5_px'].to_numpy(), 'l3_py': kinematics['p5_py'].to_numpy(), 'l3_pz': kinematics['p5_pz'].to_numpy(), 'l3_E': kinematics['p5_E'].to_numpy(),
                     'l4_px': kinematics['p6_px'].to_numpy(), 'l4_py': kinematics['p6_py'].to_numpy(), 'l4_pz': kinematics['p6_pz'].to_numpy(), 'l4_E': kinematics['p6_E'].to_numpy(),
-                    'Z1_mass': (l1+l2).mass, 'Z2_mass': (l3+l4).mass}
+                    'Z1_mass': (l1+l2).mass, 'Z2_mass': (l3+l4).mass,
+                    'Z1_pt': (l1 + l2).pt, 'Z2_pt': (l3 + l4).pt}
 
     def find_Z_lsq(self, l1, l2, l3, l4):
         # Possible Z bosons from leptons 
@@ -65,7 +66,8 @@ class ZPairCandidate:
                 'l2_px': l2_1.px, 'l2_py': l2_1.py, 'l2_pz': l2_1.pz, 'l2_E': l2_1.E,
                 'l3_px': l1_2.px, 'l3_py': l1_2.py, 'l3_pz': l1_2.pz, 'l3_E': l1_2.E,
                 'l4_px': l2_2.px, 'l4_py': l2_2.py, 'l4_pz': l2_2.pz, 'l4_E': l2_2.E,
-                'Z1_mass': (l1_1 + l2_1).mass, 'Z2_mass': (l1_2 + l2_2).mass}
+                'Z1_mass': (l1_1 + l2_1).mass, 'Z2_mass': (l1_2 + l2_2).mass,
+                'Z1_pt': (l1_1 + l2_1).pt, 'Z2_pt': (l1_2 + l2_2).pt}
     
     def find_Z_closest(self, l1, l2, l3, l4):
         # Possible Z bosons from leptons 
@@ -95,7 +97,8 @@ class ZPairCandidate:
                 'l2_px': l2_1.px, 'l2_py': l2_1.py, 'l2_pz': l2_1.pz, 'l2_E': l2_1.E,
                 'l3_px': l1_2.px, 'l3_py': l1_2.py, 'l3_pz': l1_2.pz, 'l3_E': l1_2.E,
                 'l4_px': l2_2.px, 'l4_py': l2_2.py, 'l4_pz': l2_2.pz, 'l4_E': l2_2.E,
-                'Z1_mass': (l1_1 + l2_1).mass, 'Z2_mass': (l1_2 + l2_2).mass}
+                'Z1_mass': (l1_1 + l2_1).mass, 'Z2_mass': (l1_2 + l2_2).mass,
+                'Z1_pt': (l1_1 + l2_1).pt, 'Z2_pt': (l1_2 + l2_2).pt}
     
 
 class ZPairMassWindow():
