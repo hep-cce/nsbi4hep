@@ -1,5 +1,6 @@
 import os
 import pickle
+import re
 
 import numpy as np
 from sklearn.preprocessing import StandardScaler
@@ -29,25 +30,27 @@ class BalancedDataModule(L.LightningDataModule):
 
     def prepare_data(self):
         # load samples with enough entries to sufficient size
-        sample_numerator = events.from_csv(cross_section=0.1, file_path=self.numerator_file)
-        sample_denominator = events.from_csv(cross_section=1.6, file_path=self.denominator_file)
+        xs_1 = {'sig': 0.15105108, 'sbi': 1.5569109, 'bkg': 1.6270497, 'int': -0.22043824}[re.findall("(sig|sbi|bkg|int)\.csv$", self.numerator_file)[0]]
+        xs_2 = {'sig': 0.15105108, 'sbi': 1.5569109, 'bkg': 1.6270497, 'int': -0.22043824}[re.findall("(sig|sbi|bkg|int)\.csv$", self.denominator_file)[0]]
+        events_numerator = mcfm.from_csv(cross_section=xs_1, file_path=self.numerator_file)
+        events_denominator = mcfm.from_csv(cross_section=xs_2, file_path=self.denominator_file)
 
         # apply filters and calculate kinematics
         zcands = zpair.ZPairCandidate(algorithm='leastsquare')
         zmasses = zpair.ZPairMassWindow(z1 = (70,115), z2 = (70,115))
         h4lcp = zz4l.AngularVariables()
         h4lp4 = zz4l.FourLeptonSystem()
-        self.sample_numerator = sample_numerator.calculate(zcands).filter(zmasses).calculate(h4lcp).calculate(h4lp4)
-        self.sample_denominator = sample_denominator.calculate(zcands).filter(zmasses).calculate(h4lcp).calculate(h4lp4)
+        self.events_numerator = events_numerator.calculate(zcands).filter(zmasses).calculate(h4lcp).calculate(h4lp4)
+        self.events_denominator = events_denominator.calculate(zcands).filter(zmasses).calculate(h4lcp).calculate(h4lp4)
 
 
     def setup(self, stage: str):
         if stage =='fit':
-            sample_numerator_train, sample_numerator_val = self.sample_numerator.shuffle(random_state=self.random_state).split(train_size=0.5, val_size=0.5)
-            sample_denominator_train, sample_denominator_val = self.sample_denominator.shuffle(random_state=self.random_state).split(train_size=0.5, val_size=0.5)
+            events_numerator_train, events_numerator_val = self.events_numerator.shuffle(random_state=self.random_state).split(train_size=0.5, val_size=0.5)
+            events_denominator_train, events_denominator_val = self.events_denominator.shuffle(random_state=self.random_state).split(train_size=0.5, val_size=0.5)
 
-            self.training_data = BalancedDataset(sample_numerator_train, sample_denominator_train, self.features, self.sample_size, self.random_state)
-            self.validation_data = BalancedDataset(sample_numerator_val, sample_denominator_val, self.features, self.sample_size, self.random_state)
+            self.training_data = BalancedDataset(events_numerator_train, events_denominator_train, self.features, self.sample_size, self.random_state)
+            self.validation_data = BalancedDataset(events_numerator_val, events_denominator_val, self.features, self.sample_size, self.random_state)
 
             # Apply Scaler to both datasets after fitting to training data
             self.training_data.X = self.scaler.fit_transform(self.training_data.X)
@@ -65,14 +68,14 @@ class BalancedDataModule(L.LightningDataModule):
         raise DataLoader(self.training_data, batch_size=self.batch_size)
 
 class BalancedDataset(Dataset):
-    def __init__(self, sample_sig, sample_bkg, features, sample_size, random_state=None):
+    def __init__(self, events_sig, events_bkg, features, sample_size, random_state=None):
         super().__init__()
-        sample_sig = sample_sig.unweight(sample_size, random_state=random_state)
-        sample_bkg = sample_bkg.unweight(sample_size, random_state=random_state)
+        events_sig = events_sig.unweight(sample_size, random_state=random_state)
+        events_bkg = events_bkg.unweight(sample_size, random_state=random_state)
 
         # Get only required features
-        X_sig = sample_sig.kinematics[features].to_numpy()
-        X_bkg = sample_bkg.kinematics[features].to_numpy()
+        X_sig = events_sig.kinematics[features].to_numpy()
+        X_bkg = events_bkg.kinematics[features].to_numpy()
 
         self.X = np.concatenate([X_sig, X_bkg])
 
