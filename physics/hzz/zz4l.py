@@ -103,7 +103,7 @@ class FourLeptonSystem():
         Calculator class that calculates the kinematics needed for constructing datasets.
         Angles cos 𝜃∗, cos 𝜃1, cos 𝜃2, 𝜙1 ,𝜙 used in this class are described in https://journals.aps.org/prd/pdf/10.1103/PhysRevD.86.095031.
         """
-        self.variable_functions = {'4l_mass': self.calc_m4l, '4l_rapidity': self.calc_y4l, '4l_pT': self.calc_pT}
+        self.variable_functions = {'4l_mass': self.calc_m4l, '4l_rapidity': self.calc_y4l, '4l_pT': self.calc_pT, '4l_energy': self.calc_E}
 
     def __call__(self, kinematics):
         l1 = vector.array({'px': kinematics['l1_px'], 'py': kinematics['l1_py'], 'pz': kinematics['l1_pz'], 'E': kinematics['l1_E']})
@@ -125,6 +125,9 @@ class FourLeptonSystem():
     
     def calc_pT(self, *leptons: MomentumObject4D):
         return (leptons[0]+leptons[1]+leptons[2]+leptons[3]).pt
+    
+    def calc_E(self, *leptons: MomentumObject4D):
+        return (leptons[0]+leptons[1]+leptons[2]+leptons[3]).E
 
 class MandelstamVariables():
     def __init__(self):

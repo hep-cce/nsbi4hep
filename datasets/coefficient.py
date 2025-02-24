@@ -71,7 +71,7 @@ class CoefficientDataset(Dataset):
         c6_mod = c6.Modifier(baseline=component, sample=events, c6_values=[-5,-1,0,1,5]) if component!=msq.Component.INT else c6.Modifier(baseline=component, sample=sample, c6_values=[-5,0,5])
         coefficient = c6_mod.coefficients[:,coefficient_index]
         
-        unweighted_indices = events.weights.sample(n=sample_size, replace=True, weights=sample.weights, random_state=random_state).index
+        unweighted_indices = events.weights.sample(n=sample_size, replace=True, weights=events.weights, random_state=random_state).index
         
         self.X = events.kinematics[features].to_numpy()[unweighted_indices]
         self.y = coefficient[unweighted_indices]

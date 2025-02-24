@@ -44,6 +44,10 @@ class ALICE(L.LightningModule):
         loss = self.loss_fn(y_hat, y)
         self.log("val_loss", loss, on_step=False, on_epoch=True, prog_bar=False)
         return loss
+    
+    def predict_step(self, batch, batch_idx):
+        x, y = batch
+        return self.model(x).view(-1)
 
     def configure_optimizers(self):
         optimizer = torch.optim.NAdam(self.parameters(), lr=self.lr)
