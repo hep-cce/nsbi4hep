@@ -97,6 +97,19 @@ class AngularVariables():
         return (leptons[2]+leptons[3]).mass
     
 
+class LeptonMomenta():
+    def __call__(self, kinematics):
+        l1 = vector.array({'px': kinematics['l1_px'], 'py': kinematics['l1_py'], 'pz': kinematics['l1_pz'], 'E': kinematics['l1_E']})
+        l2 = vector.array({'px': kinematics['l2_px'], 'py': kinematics['l2_py'], 'pz': kinematics['l2_pz'], 'E': kinematics['l2_E']})
+        l3 = vector.array({'px': kinematics['l3_px'], 'py': kinematics['l3_py'], 'pz': kinematics['l3_pz'], 'E': kinematics['l3_E']})
+        l4 = vector.array({'px': kinematics['l4_px'], 'py': kinematics['l4_py'], 'pz': kinematics['l4_pz'], 'E': kinematics['l4_E']})
+
+        return {'l1_pt': l1.pt, 'l1_eta': l1.eta, 'l1_phi': l1.phi, 'l1_E': l1.energy,
+                'l2_pt': l2.pt, 'l2_eta': l2.eta, 'l2_phi': l2.phi, 'l2_E': l2.energy,
+                'l3_pt': l3.pt, 'l3_eta': l3.eta, 'l3_phi': l3.phi, 'l3_E': l3.energy,
+                'l4_pt': l4.pt, 'l4_eta': l4.eta, 'l4_phi': l4.phi, 'l4_E': l4.energy}
+
+
 class FourLeptonSystem():
     def __init__(self):
         """
