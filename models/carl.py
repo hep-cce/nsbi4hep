@@ -45,6 +45,10 @@ class CARL(L.LightningModule):
         loss = self.loss_fn(y_hat, y)
         self.log("val_loss", loss, on_step=False, on_epoch=True, prog_bar=True)
         return loss
+    
+    def predict_step(self, batch, batch_idx):
+        x, y = batch
+        return self.model(x).view(-1)
 
     def configure_optimizers(self):
         # NAdam optimizer

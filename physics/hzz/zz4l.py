@@ -97,6 +97,31 @@ class AngularVariables():
         return (leptons[2]+leptons[3]).mass
     
 
+class LeptonMomenta():
+    def __call__(self, kinematics):
+        if 'l1_px' in kinematics:
+            l1 = vector.array({'px': kinematics['l1_px'], 'py': kinematics['l1_py'], 'pz': kinematics['l1_pz'], 'E': kinematics['l1_E']})
+            l2 = vector.array({'px': kinematics['l2_px'], 'py': kinematics['l2_py'], 'pz': kinematics['l2_pz'], 'E': kinematics['l2_E']})
+            l3 = vector.array({'px': kinematics['l3_px'], 'py': kinematics['l3_py'], 'pz': kinematics['l3_pz'], 'E': kinematics['l3_E']})
+            l4 = vector.array({'px': kinematics['l4_px'], 'py': kinematics['l4_py'], 'pz': kinematics['l4_pz'], 'E': kinematics['l4_E']})
+        else:
+            l1 = vector.array({'px': kinematics['p3_px'], 'py': kinematics['p3_py'], 'pz': kinematics['p3_pz'], 'E': kinematics['p3_E']})
+            l2 = vector.array({'px': kinematics['p4_px'], 'py': kinematics['p4_py'], 'pz': kinematics['p4_pz'], 'E': kinematics['p4_E']})
+            l3 = vector.array({'px': kinematics['p5_px'], 'py': kinematics['p5_py'], 'pz': kinematics['p5_pz'], 'E': kinematics['p5_E']})
+            l4 = vector.array({'px': kinematics['p6_px'], 'py': kinematics['p6_py'], 'pz': kinematics['p6_pz'], 'E': kinematics['p6_E']})
+
+        pt = np.array([l1.pt, l2.pt, l3.pt, l4.pt]).T
+        indices = np.argsort(pt, axis=1)[:,::-1]
+
+        leptons = np.array([l1,l2,l3,l4]).T
+        leptons_sorted = vector.array(np.take_along_axis(leptons, indices, axis=1), dtype=[("px", np.float32), ("py", np.float32), ("pz", np.float32), ("E", np.float32)])
+
+        return {'l1_pt': leptons_sorted[:,0].pt, 'l1_eta': leptons_sorted[:,0].eta, 'l1_phi': leptons_sorted[:,0].phi, 'l1_energy': leptons_sorted[:,0].energy,
+                'l2_pt': leptons_sorted[:,1].pt, 'l2_eta': leptons_sorted[:,1].eta, 'l2_phi': leptons_sorted[:,1].phi, 'l2_energy': leptons_sorted[:,1].energy,
+                'l3_pt': leptons_sorted[:,2].pt, 'l3_eta': leptons_sorted[:,2].eta, 'l3_phi': leptons_sorted[:,2].phi, 'l3_energy': leptons_sorted[:,2].energy,
+                'l4_pt': leptons_sorted[:,3].pt, 'l4_eta': leptons_sorted[:,3].eta, 'l4_phi': leptons_sorted[:,3].phi, 'l4_energy': leptons_sorted[:,3].energy}
+
+
 class FourLeptonSystem():
     def __init__(self):
         """
