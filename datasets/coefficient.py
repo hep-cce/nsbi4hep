@@ -1,12 +1,10 @@
 import os, pickle
 
-import sys
-sys.path.insert(1,'..')
-
 from physics.simulation import mcfm, msq
 from physics.hzz import zpair, zz4l
 from physics.hstar import c6
 
+import numpy as np
 from sklearn.preprocessing import StandardScaler
 
 import lightning as L
@@ -33,11 +31,12 @@ class RolypolyDataModule(L.LightningDataModule):
     def prepare_data(self):
         events = mcfm.from_csv(cross_section=1.0, file_path=self.filepath)
         
-        z_cand = zpair.ZPairCandidate(algorithm='truth')
+        z_cand = zpair.ZPairCandidate(algorithm='leastsquare')
         z_masses = zpair.ZPairMassWindow(z1=(70,115), z2=(70,115))
         mandelstam = zz4l.MandelstamVariables()
+        lepton_momenta = zz4l.LeptonMomenta()
 
-        self.events = events.calculate(z_cand).filter(z_masses).calculate(mandelstam)
+        self.events = events.calculate(z_cand).filter(z_masses).calculate(mandelstam).calculate(lepton_momenta)
 
     def setup(self, stage: str):
         if stage=='fit':
@@ -53,10 +52,10 @@ class RolypolyDataModule(L.LightningDataModule):
                 pickle.dump(self.X_scaler, f)
             self.validation_data.X = self.X_scaler.transform(self.validation_data.X)
 
-            self.training_data.y = self.y_scaler.fit_transform(self.training_data.y)
+            self.training_data.y = self.y_scaler.fit_transform(self.training_data.y[:,np.newaxis]).flatten()
             with open(self.y_scaler_path, 'wb') as f:
                 pickle.dump(self.y_scaler, f)
-            self.validation_data.y = self.y_scaler.transform(self.validation_data.y)
+            self.validation_data.y = self.y_scaler.transform(self.validation_data.y[:,np.newaxis]).flatten()
             
     def train_dataloader(self):
         return DataLoader(self.training_data, batch_size=self.batch_size)
@@ -68,7 +67,7 @@ class CoefficientDataset(Dataset):
 
     def __init__(self, events, features, coefficient_index, sample_size, component = msq.Component.SBI, random_state=None):
         super().__init__()
-        c6_mod = c6.Modifier(baseline=component, sample=events, c6_values=[-5,-1,0,1,5]) if component!=msq.Component.INT else c6.Modifier(baseline=component, sample=sample, c6_values=[-5,0,5])
+        c6_mod = c6.Modifier(baseline=component, events=events, c6_values=[-5,-1,0,1,5]) if component!=msq.Component.INT else c6.Modifier(baseline=component, events=events, c6_values=[-5,0,5])
         coefficient = c6_mod.coefficients[:,coefficient_index]
         
         unweighted_indices = events.weights.sample(n=sample_size, replace=True, weights=events.weights, random_state=random_state).index
