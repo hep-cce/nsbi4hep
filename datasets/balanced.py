@@ -30,10 +30,10 @@ class BalancedDataModule(L.LightningDataModule):
 
     def prepare_data(self):
         # load samples with enough entries to sufficient size
-        xs_1 = {'sig': 0.15105108, 'sbi': 1.5569109, 'bkg': 1.6270497, 'int': -0.22043824}[re.findall("(sig|sbi|bkg|int)\.csv$", self.numerator_file)[0]]
-        xs_2 = {'sig': 0.15105108, 'sbi': 1.5569109, 'bkg': 1.6270497, 'int': -0.22043824}[re.findall("(sig|sbi|bkg|int)\.csv$", self.denominator_file)[0]]
-        events_numerator = mcfm.from_csv(cross_section=xs_1, file_path=self.numerator_file)
-        events_denominator = mcfm.from_csv(cross_section=xs_2, file_path=self.denominator_file)
+        #xs_1 = {'sig': 0.15105108, 'sbi': 1.5569109, 'bkg': 1.6270497, 'int': -0.22043824}[re.findall("(sig|sbi|bkg|int)\.csv$", self.numerator_file)[0]]
+        #xs_2 = {'sig': 0.15105108, 'sbi': 1.5569109, 'bkg': 1.6270497, 'int': -0.22043824}[re.findall("(sig|sbi|bkg|int)\.csv$", self.denominator_file)[0]]
+        events_numerator = mcfm.from_csv(cross_section=1.0, file_path=self.numerator_file)
+        events_denominator = mcfm.from_csv(cross_section=1.0, file_path=self.denominator_file)
 
         # apply filters and calculate kinematics
         zcands = zpair.ZPairCandidate(algorithm='leastsquare')
