@@ -18,7 +18,6 @@ hepstats==0.9.0
 hepunits==2.3.5
 hist==2.8.0
 histoprint==2.6.0
-hstar-trilinear==1.0.0
 iminuit==2.30.1
 importlib_metadata==8.6.1
 importlib_resources==6.5.2
