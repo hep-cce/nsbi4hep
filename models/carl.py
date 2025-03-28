@@ -47,7 +47,10 @@ class CARL(L.LightningModule):
         return loss
     
     def predict_step(self, batch, batch_idx):
-        x, y = batch
+        if len(batch) == 2:
+            x, y = batch
+        else:
+            x = batch[0]
         return self.model(x).view(-1)
 
     def configure_optimizers(self):

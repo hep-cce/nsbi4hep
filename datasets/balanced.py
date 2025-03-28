@@ -30,8 +30,6 @@ class BalancedDataModule(L.LightningDataModule):
 
     def prepare_data(self):
         # load samples with enough entries to sufficient size
-        #xs_1 = {'sig': 0.15105108, 'sbi': 1.5569109, 'bkg': 1.6270497, 'int': -0.22043824}[re.findall("(sig|sbi|bkg|int)\.csv$", self.numerator_file)[0]]
-        #xs_2 = {'sig': 0.15105108, 'sbi': 1.5569109, 'bkg': 1.6270497, 'int': -0.22043824}[re.findall("(sig|sbi|bkg|int)\.csv$", self.denominator_file)[0]]
         events_numerator = mcfm.from_csv(cross_section=1.0, file_path=self.numerator_file)
         events_denominator = mcfm.from_csv(cross_section=1.0, file_path=self.denominator_file)
 
@@ -40,14 +38,27 @@ class BalancedDataModule(L.LightningDataModule):
         zmasses = zpair.ZPairMassWindow(z1 = (70,115), z2 = (70,115))
         h4lcp = zz4l.AngularVariables()
         h4lp4 = zz4l.FourLeptonSystem()
-        self.events_numerator = events_numerator.calculate(zcands).filter(zmasses).calculate(h4lcp).calculate(h4lp4)
-        self.events_denominator = events_denominator.calculate(zcands).filter(zmasses).calculate(h4lcp).calculate(h4lp4)
+        h4l = zz4l.LeptonMomenta()
+        events_numerator = events_numerator.calculate(zcands).filter(zmasses).calculate(h4lcp).calculate(h4lp4).calculate(h4l)
+        events_denominator = events_denominator.calculate(zcands).filter(zmasses).calculate(h4lcp).calculate(h4lp4).calculate(h4l)
+
+        with open('events_num.pkl', 'wb') as f:
+            pickle.dump(events_numerator, f)
+
+        with open('events_den.pkl', 'wb') as f:
+            pickle.dump(events_denominator, f)
 
 
     def setup(self, stage: str):
         if stage =='fit':
-            events_numerator_train, events_numerator_val = self.events_numerator.shuffle(random_state=self.random_state).split(train_size=0.5, val_size=0.5)
-            events_denominator_train, events_denominator_val = self.events_denominator.shuffle(random_state=self.random_state).split(train_size=0.5, val_size=0.5)
+            with open('events_num.pkl', 'rb') as fnum:
+                events_num = pickle.load(fnum)
+
+            with open('events_den.pkl', 'rb') as fden:
+                events_den = pickle.load(fden)
+
+            events_numerator_train, events_numerator_val = events_num.shuffle(random_state=self.random_state).split(train_size=0.5, val_size=0.5)
+            events_denominator_train, events_denominator_val = events_den.shuffle(random_state=self.random_state).split(train_size=0.5, val_size=0.5)
 
             self.training_data = BalancedDataset(events_numerator_train, events_denominator_train, self.features, self.sample_size, self.random_state)
             self.validation_data = BalancedDataset(events_numerator_val, events_denominator_val, self.features, self.sample_size, self.random_state)
