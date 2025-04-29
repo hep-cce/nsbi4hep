@@ -212,7 +212,7 @@ class M4l():
 
         indices = np.intersect1d(cond1, cond2)
 
-        return indices, None
+        return indices
     
 class LeptonMomentum():
     def __init__(self, lepton_index, momenta_min: tuple=(-np.inf,-np.inf,-np.inf,-np.inf), momenta_max: tuple=(np.inf,np.inf,np.inf,np.inf)):
