@@ -92,7 +92,7 @@ class BalancedDataset(Dataset):
 
         self.s = np.concatenate([np.ones(sample_size), np.zeros(sample_size)])
 
-        self.X, self.s = shuffle(self.X, self.s, random_state=random_state)
+        self.X, self.s, self.indices = shuffle(self.X, self.s, np.arange(2*sample_size), random_state=random_state)
     
     def __len__(self):
         return len(self.s)
