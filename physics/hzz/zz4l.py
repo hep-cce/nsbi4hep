@@ -121,6 +121,33 @@ class LeptonMomenta():
                 'l3_pt': leptons_sorted[:,2].pt, 'l3_eta': leptons_sorted[:,2].eta, 'l3_phi': leptons_sorted[:,2].phi, 'l3_energy': leptons_sorted[:,2].energy,
                 'l4_pt': leptons_sorted[:,3].pt, 'l4_eta': leptons_sorted[:,3].eta, 'l4_phi': leptons_sorted[:,3].phi, 'l4_energy': leptons_sorted[:,3].energy}
 
+class TwoLepTwoNuSystem():
+    def __init__(self):
+        """
+        """
+        self.variable_functions = {'2l2v_mt': self.calc_mt, '2l2lv_met': self.calc_met}
+
+    def __call__(self, kinematics):
+        l1 = vector.array({'px': kinematics['p3_px'], 'py': kinematics['p3_py'], 'pz': kinematics['p3_pz'], 'E': kinematics['p3_E']})
+        l2 = vector.array({'px': kinematics['p4_px'], 'py': kinematics['p4_py'], 'pz': kinematics['p4_pz'], 'E': kinematics['p4_E']})
+        v1 = vector.array({'px': kinematics['p5_px'], 'py': kinematics['p5_py'], 'pz': kinematics['p5_pz'], 'E': kinematics['p5_E']})
+        v2 = vector.array({'px': kinematics['p6_px'], 'py': kinematics['p6_py'], 'pz': kinematics['p6_pz'], 'E': kinematics['p6_E']})
+        met_px = v1.px + v2.px
+        met_py = v1.py + v2.py
+        
+        results = {}
+        results['2l2v_mt'] = self.calc_mt(l1, l2, v1, v2)
+        results['2l2lv_met'] = self.calc_met(v1, v2)
+
+        return results
+
+    def calc_mt(self, l1, l2, v1, v2):
+        """Transverse mass of the (2l + MET) system."""
+        return (l1+l2+v1+v2).mt
+
+    def calc_met(self, v1, v2):
+        """Missing transverse energy magnitude."""
+        return (v1+v2).et
 
 class FourLeptonSystem():
     def __init__(self):
@@ -213,27 +240,3 @@ class M4l():
         indices = np.intersect1d(cond1, cond2)
 
         return indices, None
-    
-class LeptonMomentum():
-    def __init__(self, lepton_index, momenta_min: tuple=(-np.inf,-np.inf,-np.inf,-np.inf), momenta_max: tuple=(np.inf,np.inf,np.inf,np.inf)):
-        self.lepton_index = lepton_index
-        self.momenta_min = momenta_min
-        self.momenta_max = momenta_max
-
-    def __call__(self, kinematics, components, weights, probabilities):
-        lepton_name = ['l1','l2','l3','l4'][self.lepton_index]
-        px = kinematics[f'{lepton_name}_px']
-        py = kinematics[f'{lepton_name}_py']
-        pz = kinematics[f'{lepton_name}_pz']
-        pE = kinematics[f'{lepton_name}_E']
-
-        cond1 = np.where((px >= self.momenta_min[0]) & (px <= self.momenta_max[0]))
-        cond2 = np.where((py >= self.momenta_min[1]) & (py <= self.momenta_max[1]))
-        cond3 = np.where((pz >= self.momenta_min[2]) & (pz <= self.momenta_max[2]))
-        cond4 = np.where((pE >= self.momenta_min[3]) & (pE <= self.momenta_max[3]))
-
-        print(len(cond1), len(cond2), len(cond3), len(cond4))
-
-        indices = np.intersect1d(np.intersect1d(np.intersect1d(cond1, cond2), cond3), cond4)
-
-        return indices, indices

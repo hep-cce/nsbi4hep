@@ -3,23 +3,15 @@ __pycache__/
 
 venv*/
 
+data/
 run/
-inference/
-job/
+jobs/
 
 notebooks/.ipynb_checkpoints/
-**/lightning_logs/
 
-jobs/*
-jobs/*/
-
+*.sif
 *.dat
 *.csv
 *.pdf
 *.out.*
 *.err.*
-*.keras
-*history*.txt
-*.tf/
-*.slurm
-*.config

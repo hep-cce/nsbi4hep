@@ -21,7 +21,7 @@ components = {
 
 def main(args):
     dm = coefficient.RolypolyDataModule(
-                                   filepath = args.events[0], 
+                                   filepath = args.events, 
                                    features = args.features,
                                    coefficient_index = args.coefficient_index,
                                    component = components[args.component],
@@ -54,7 +54,7 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Train a ROLYPOLY model")
-    parser.add_argument('--events', type=str, nargs='+', required=True, help='Sample filepath')
+    parser.add_argument('--events', type=str, required=True, help='Sample filepath')
     parser.add_argument('--features', type=str, nargs='+', default= ['cth_star', 'cth_1', 'cth_2', 'phi_1', 'phi', 'Z1_mass', 'Z2_mass', '4l_mass', '4l_rapidity'], help='Features to train on')
     parser.add_argument('--n-layers', type=int, default=10, help='Number of layers')
     parser.add_argument('--n-nodes', type=int, default=100, help='Number of hidden nodes')

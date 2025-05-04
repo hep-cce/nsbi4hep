@@ -28,17 +28,18 @@ class RolypolyDataModule(L.LightningDataModule):
         self.y_scaler_path = y_scaler_path
         self.coefficient_index = coefficient_index
     
-    def prepare_data(self):
-        events = mcfm.from_csv(cross_section=1.0, file_path=self.filepath)
+    # def prepare_data(self):
+
+    def setup(self, stage: str):
+        self.events = mcfm.from_csv(cross_section=1.0, file_path=self.filepath)
         
         z_cand = zpair.ZPairCandidate(algorithm='leastsquare')
         z_masses = zpair.ZPairMassWindow(z1=(70,115), z2=(70,115))
         mandelstam = zz4l.MandelstamVariables()
         lepton_momenta = zz4l.LeptonMomenta()
 
-        self.events = events.calculate(z_cand).filter(z_masses).calculate(mandelstam).calculate(lepton_momenta)
+        self.events = self.events.calculate(z_cand).filter(z_masses).calculate(mandelstam).calculate(lepton_momenta)
 
-    def setup(self, stage: str):
         if stage=='fit':
 
             events_train, events_val = self.events.shuffle(random_state=self.random_state).split(train_size=0.5, val_size=0.5)
