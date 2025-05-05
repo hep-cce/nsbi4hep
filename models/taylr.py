@@ -3,7 +3,7 @@ from torch import nn
 import lightning as L
 import numpy as np
 
-class ROLYPOLY(L.LightningModule):
+class TAYLR(L.LightningModule):
 
     def __init__(self, n_features, n_layers, n_nodes, learning_rate):
         super().__init__()
@@ -18,38 +18,39 @@ class ROLYPOLY(L.LightningModule):
         layers.append(nn.Linear(n_nodes, 1))
         self.model = nn.Sequential(*layers)
 
-        def init_weights(m):
-            if isinstance(m, nn.Linear):
-                torch.nn.init.xavier_uniform_(m.weight)
-                m.bias.data.fill_(0.0)
+        def init_weights(node):
+            if isinstance(node, nn.Linear):
+                torch.nn.init.xavier_uniform_(node.weight)
+                node.bias.data.fill_(0.0)
         self.model.apply(init_weights)
 
-        self.loss_fn = nn.MSELoss()
+        self.loss_fn = nn.MSELoss(reduction='none')
 
     def forward(self, x):
         return self.model(x)
 
     def training_step(self, batch, batch_idx):
-        x, y = batch
+        x, y, w = batch
         y_hat = self.model(x).view(-1)
         y = y.view(-1)
+        w = w.view(-1)
         loss = self.loss_fn(y_hat, y)
+        loss = (loss * w).mean()
         self.log("train_loss", loss, on_step=False, on_epoch=True, prog_bar=False, sync_dist=True)
         return loss
 
     def validation_step(self, batch, batch_idx):
-        x, y = batch
+        x, y, w = batch
         y_hat = self.model(x).view(-1)
         y = y.view(-1)
+        w = w.view(-1)
         loss = self.loss_fn(y_hat, y)
+        loss = (loss * w).mean()
         self.log("val_loss", loss, on_step=False, on_epoch=True, prog_bar=False, sync_dist=True)
         return loss
     
     def predict_step(self, batch, batch_idx):
-        if len(batch) == 2:
-            x, y = batch
-        else:
-            x = batch[0]
+        x, y, w = batch
         return self.model(x).view(-1)
 
     def configure_optimizers(self):

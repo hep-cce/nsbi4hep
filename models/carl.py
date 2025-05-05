@@ -35,7 +35,7 @@ class CARL(L.LightningModule):
         y_hat = self.model(x).view(-1)
         y = y.view(-1)
         loss = self.loss_fn(y_hat, y)
-        self.log("train_loss", loss, on_step=False, on_epoch=True, prog_bar=True)
+        self.log("train_loss", loss, on_step=False, on_epoch=True, prog_bar=True, sync_dist=True)
         return loss
 
     def validation_step(self, batch, batch_idx):
@@ -43,7 +43,7 @@ class CARL(L.LightningModule):
         y_hat = self.model(x).view(-1)
         y = y.view(-1)
         loss = self.loss_fn(y_hat, y)
-        self.log("val_loss", loss, on_step=False, on_epoch=True, prog_bar=True)
+        self.log("val_loss", loss, on_step=False, on_epoch=True, prog_bar=True, sync_dist=True)
         return loss
     
     def predict_step(self, batch, batch_idx):

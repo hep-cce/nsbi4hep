@@ -1,4 +1,0 @@
-learning_rate: 1.0e-05
-n_features: 16
-n_layers: 10
-n_nodes: 1000

@@ -160,8 +160,8 @@ class Process():
     self.components = components
     # HACK: to avoid negative weights
     # only e.g. 2/2M events have infinitesimally-small negative weights due to numerical precision
-    if weights.sum() > 0.0:
-      weights[weights < 0] = 0.0
+    # if weights.sum() > 0.0:
+    #   weights[weights < 0] = 0.0
     self.weights = weights
     self.probabilities = weights / weights.sum()
 
@@ -204,8 +204,8 @@ class Process():
       val_size /= total_size
       test_size /= total_size
         
-      split_1_kin, kinematics_test, split_1_comp, components_test, split_1_wt, weights_test = train_test_split(self.kinematics, self.components, self.weights, test_size=test_size, train_size=train_size+val_size, shuffle=False)
-      kinematics_train, kinematics_val, components_train, components_val, weights_train, weights_val = train_test_split(split_1_kin, split_1_comp, split_1_wt, test_size=val_size, train_size=train_size, shuffle=False)
+      kinematics_train, kinematics_val_test, components_train, components_val_test, weights_train, weights_val_test = train_test_split(self.kinematics, self.components, self.weights, train_size=train_size, test_size=test_size+val_size, shuffle=False)
+      kinematics_val, kinematics_test, components_val, components_test, weights_val, weights_test = train_test_split(kinematics_val_test, components_val_test, weights_val_test, train_size=train_size, test_size=val_size, shuffle=False)
 
       # the weights now must be scaled up so the sum of weights remains the cross-section
       weights_test /= test_size
@@ -237,13 +237,26 @@ class Process():
         kinematics_val.reset_index(drop=True), components_val.reset_index(drop=True), weights_val.reset_index(drop=True)
       )
 
+  def sample(self, n, random_state=None):
+    sampled_events_indices = self.weights.sample(n=n, replace=False, weights=None, random_state=random_state).index
+
+    # the weights now must be scaled up so the sum of weights remains the cross-section
+    sampled_weights = self.weights.loc[sampled_events_indices].reset_index(drop=True)
+    sampled_weights *= self.weights.sum() / sampled_weights.sum()
+
+    return Process(
+      self.kinematics.loc[sampled_events_indices].reset_index(drop=True),
+      self.components.loc[sampled_events_indices].reset_index(drop=True),
+      sampled_weights
+    )
+
   def unweight(self, n, random_state=None):
     unweighted_events_indices = self.weights.sample(n=n, replace=True, weights=self.weights, random_state=random_state).index
 
     return Process(
       self.kinematics.loc[unweighted_events_indices].reset_index(drop=True),
       self.components.loc[unweighted_events_indices].reset_index(drop=True),
-      pd.Series(np.ones_like(unweighted_events_indices)).reset_index(drop=True)
+      pd.Series(np.ones_like(unweighted_events_indices) * self.weights.sum() / n).reset_index(drop=True)
     )
 
   def reweight(self, denominator, numerator):

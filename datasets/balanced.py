@@ -57,17 +57,24 @@ class BalancedDataModule(L.LightningDataModule):
             with open('events_den.pkl', 'rb') as fden:
                 events_den = pickle.load(fden)
 
-            events_numerator_train, events_numerator_val = events_num.shuffle(random_state=self.random_state).split(train_size=0.5, val_size=0.5)
-            events_denominator_train, events_denominator_val = events_den.shuffle(random_state=self.random_state).split(train_size=0.5, val_size=0.5)
+            train_size, val_size, test_size = 1.0, 0.1, 0.1
+            events_numerator_train, events_numerator_val, events_numerator_test = events_num.unweight(self.sample_size,random_state=self.random_state).split(train_size=train_size, val_size=val_size, test_size=test_size)
+            events_denominator_train, events_denominator_val, events_denominator_test = events_den.unweight(self.sample_size,random_state=self.random_state).split(train_size=train_size, val_size=val_size, test_size=test_size)
 
-            self.training_data = BalancedDataset(events_numerator_train, events_denominator_train, self.features, self.sample_size, self.random_state)
-            self.validation_data = BalancedDataset(events_numerator_val, events_denominator_val, self.features, self.sample_size, self.random_state)
+            self.training_data = BalancedDataset(events_numerator_train, events_denominator_train, self.features)
+            self.validation_data = BalancedDataset(events_numerator_val, events_denominator_val, self.features)
+            self.testing_data = BalancedDataset(events_numerator_test, events_denominator_test, self.features)
 
             # Apply Scaler to both datasets after fitting to training data
             self.training_data.X = self.scaler.fit_transform(self.training_data.X)
             with open(self.scaler_path, 'wb') as f:
                 pickle.dump(self.scaler, f)
             self.validation_data.X = self.scaler.transform(self.validation_data.X)
+            self.testing_data.X = self.scaler.transform(self.testing_data.X)
+
+            self.training_data.X, self.training_data.s, self.training_data.indices = shuffle(self.training_data.X, self.training_data.s, np.arange(len(self.training_data.s)), random_state=self.random_state)
+            self.validation_data.X, self.validation_data.s, self.validation_data.indices = shuffle(self.validation_data.X, self.validation_data.s, np.arange(len(self.validation_data.s)), random_state=self.random_state)
+            self.testing_data.X, self.testing_data.s, self.testing_data.indices = shuffle(self.testing_data.X, self.testing_data.s, np.arange(len(self.testing_data.s)), random_state=self.random_state)
 
     def train_dataloader(self):
         return DataLoader(self.training_data, batch_size=self.batch_size)
@@ -75,24 +82,18 @@ class BalancedDataModule(L.LightningDataModule):
     def val_dataloader(self):
         return DataLoader(self.validation_data, batch_size=self.batch_size)
 
-    def predict_dataloader(self):
-        raise DataLoader(self.training_data, batch_size=self.batch_size)
+    def test_dataloader(self):
+        return DataLoader(self.testing_data, batch_size=self.batch_size)
 
 class BalancedDataset(Dataset):
-    def __init__(self, events_sig, events_bkg, features, sample_size, random_state=None):
+    def __init__(self, events_sig, events_bkg, features):
         super().__init__()
-        events_sig = events_sig.unweight(sample_size, random_state=random_state)
-        events_bkg = events_bkg.unweight(sample_size, random_state=random_state)
-
         # Get only required features
         X_sig = events_sig.kinematics[features].to_numpy()
         X_bkg = events_bkg.kinematics[features].to_numpy()
 
         self.X = np.concatenate([X_sig, X_bkg])
-
-        self.s = np.concatenate([np.ones(sample_size), np.zeros(sample_size)])
-
-        self.X, self.s, self.indices = shuffle(self.X, self.s, np.arange(2*sample_size), random_state=random_state)
+        self.s = np.concatenate([np.ones(len(X_sig)), np.zeros(len(X_bkg))])
     
     def __len__(self):
         return len(self.s)
