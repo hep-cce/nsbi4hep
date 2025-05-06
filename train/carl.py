@@ -16,6 +16,7 @@ def main(args):
     dm = balanced.BalancedDataModule(
                                    numerator_file = args.numerator_events[0],
                                    denominator_file = args.denominator_events[0], 
+                                   analysis = args.analysis,
                                    features = args.features,
                                    sample_size = args.sample_size,
                                    batch_size = args.batch_size,
@@ -48,6 +49,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Train a CARL model")
     parser.add_argument('--numerator-events', type=str, nargs='+', required=True, help='Numerator sample filepath')
     parser.add_argument('--denominator-events', type=str, nargs='+', required=True, help='Denominator sample filepath')
+    parser.add_argument('--analysis', type=str, default= 'h4l', help='Analysis to run')
     parser.add_argument('--features', type=str, nargs='+', default= ['cth_star', 'cth_1', 'cth_2', 'phi_1', 'phi', 'Z1_mass', 'Z2_mass', '4l_mass', '4l_rapidity'], help='Features to train on')
     parser.add_argument('--n-layers', type=int, default=10, help='Number of layers')
     parser.add_argument('--n-nodes', type=int, default=100, help='Number of hidden nodes')

@@ -1,7 +1,7 @@
 import os, pickle
 
 from physics.simulation import mcfm, msq
-from physics.hzz import zpair, zz4l
+from physics.hzz import zz4l
 from physics.hstar import c6
 
 from sklearn.preprocessing import StandardScaler
@@ -32,13 +32,7 @@ class AliceDataModule(L.LightningDataModule):
     
     def prepare_data(self):
         events = mcfm.from_csv(cross_section=1.0, file_path=self.filepath)
-        
-        z_cand = zpair.ZPairCandidate(algorithm='leastsquare')
-        z_masses = zpair.ZPairMassWindow(z1=(70,115), z2=(70,115))
-        angles = zz4l.AngularVariables()
-        four_lepton_vars = zz4l.FourLeptonSystem()
-
-        self.events = events.calculate(z_cand).filter(z_masses).calculate(angles).calculate(four_lepton_vars)
+        self.events = zz4l.analyze(events)
 
     def setup(self, stage: str):
         if stage=='fit':

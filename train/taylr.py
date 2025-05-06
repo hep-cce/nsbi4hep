@@ -22,8 +22,10 @@ components = {
 def main(args):
     dm = coefficient.CoefficientDataModule(
                                    file_path = args.events, 
+                                   analysis = args.analysis,
                                    features = args.features,
                                    coefficient_index = args.coefficient_index,
+                                   scaler_path = 'scaler.pkl',
                                    component = components[args.component],
                                    sample_size = args.sample_size,
                                    batch_size = args.batch_size,
@@ -55,7 +57,8 @@ def main(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Train a TAYLR model")
     parser.add_argument('--events', type=str, required=True, help='Sample filepath')
-    parser.add_argument('--features', type=str, nargs='+', default= ['cth_star', 'cth_1', 'cth_2', 'phi_1', 'phi', 'Z1_mass', 'Z2_mass', '4l_mass', '4l_rapidity'], help='Features to train on')
+    parser.add_argument('--analysis', type=str,  default='4l', help='Analysis  to run')
+    parser.add_argument('--features', type=str,  nargs='+', default=['l1_pt', 'l1_eta', 'l1_phi', 'l1_energy', 'l2_pt', 'l2_eta', 'l2_phi', 'l2_energy', 'l3_pt', 'l3_eta', 'l3_phi', 'l3_energy', 'l4_pt', 'l4_eta', 'l4_phi', 'l4_energy'], help='Observable system to train on')
     parser.add_argument('--n-layers', type=int, default=10, help='Number of layers')
     parser.add_argument('--n-nodes', type=int, default=100, help='Number of hidden nodes')
     parser.add_argument('--max-epochs', type=int, default=300, help='Maximum number of epochs')

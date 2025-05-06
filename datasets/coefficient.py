@@ -1,7 +1,7 @@
 import os, pickle
 
 from physics.simulation import mcfm, msq
-from physics.hzz import zpair, zz4l
+from physics.hzz import zz4l, zz2l2v
 from physics.hstar import c6
 
 import numpy as np
@@ -13,10 +13,11 @@ import torch
 
 class CoefficientDataModule(L.LightningDataModule):
 
-    def __init__(self, file_path: str = '', features = ['mandelstam_s', 'mandelstam_t', 'mandelstam_u'], coefficient_index=1, component = msq.Component.SBI, scaler_path = 'scaler.pkl', sample_size = 10000, batch_size: int = 32, random_state: int=None) -> None:
+    def __init__(self, file_path: str = '', analysis : str = None, features : list = None, coefficient_index : int = None, component : msq.Component = msq.Component.SBI, scaler_path : str = 'scaler.pkl', sample_size : int = None, batch_size: int = None, random_state: int=None) -> None:
         super().__init__()
 
         self.file_path = file_path
+        self.analysis = analysis
         self.features = features
         self.component = component
         self.sample_size = sample_size
@@ -28,14 +29,10 @@ class CoefficientDataModule(L.LightningDataModule):
     
     def prepare_data(self):
         events = mcfm.from_csv(cross_section=1.0, file_path=self.file_path)
-        
-        z_cand = zpair.ZPairCandidate(algorithm='leastsquare')
-        z_masses = zpair.ZPairMassWindow(z1=(70,115), z2=(70,115))
-        mandelstam = zz4l.MandelstamVariables()
-        lepton_momenta = zz4l.LeptonMomenta()
-
-        events = events.calculate(z_cand).filter(z_masses).calculate(mandelstam).calculate(lepton_momenta)
-
+        if self.analysis == '4l':
+            events = zz4l.analyze(events)
+        elif self.analysis == '2l2v':
+            events = zz2l2v.analyze(events)
         with open('events.pkl', 'wb') as f:
             pickle.dump(events, f)
 
@@ -46,8 +43,7 @@ class CoefficientDataModule(L.LightningDataModule):
         if stage=='fit':
 
             train_size, val_size, test_size= 1.0, 0.1, 0.1
-            # events_train, events_val, events_test = events.sample(self.sample_size, random_state=self.random_state).split(train_size=train_size, val_size=val_size, test_size=test_size)
-            events_train, events_val, events_test = events.split(train_size=train_size, val_size=val_size, test_size=test_size)
+            events_train, events_val, events_test = events.sample(self.sample_size,random_state=self.random_state).split(train_size=train_size, val_size=val_size, test_size=test_size)
 
             self.training_data = CoefficientDataset(events_train, features=self.features, coefficient_index=self.coefficient_index, component=self.component)
             self.validation_data = CoefficientDataset(events_val, features=self.features, coefficient_index=self.coefficient_index, component=self.component)

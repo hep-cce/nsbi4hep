@@ -205,12 +205,12 @@ class Process():
       test_size /= total_size
         
       kinematics_train, kinematics_val_test, components_train, components_val_test, weights_train, weights_val_test = train_test_split(self.kinematics, self.components, self.weights, train_size=train_size, test_size=test_size+val_size, shuffle=False)
-      kinematics_val, kinematics_test, components_val, components_test, weights_val, weights_test = train_test_split(kinematics_val_test, components_val_test, weights_val_test, train_size=train_size, test_size=val_size, shuffle=False)
+      kinematics_val, kinematics_test, components_val, components_test, weights_val, weights_test = train_test_split(kinematics_val_test, components_val_test, weights_val_test, train_size=val_size, test_size=test_size, shuffle=False)
 
       # the weights now must be scaled up so the sum of weights remains the cross-section
-      weights_test /= test_size
       weights_train /= train_size
       weights_val /= val_size
+      weights_test /= test_size
 
       return Process(
         kinematics_train.reset_index(drop=True), components_train.reset_index(drop=True), weights_train.reset_index(drop=True)

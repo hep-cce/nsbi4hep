@@ -9,17 +9,17 @@ import torch
 from torch.utils.data import DataLoader, Dataset
 import lightning as L
 
-from physics.hstar import c6
 from physics.simulation import mcfm, msq
-from physics.hzz import zpair, zz4l
+from physics.hzz import zz4l, zz2l2v
 
 class BalancedDataModule(L.LightningDataModule):
 
-    def __init__(self, numerator_file: str = '', denominator_file: str = '', features = ['cth_star', 'cth_1', 'cth_2', 'phi_1', 'phi', 'Z1_mass', 'Z2_mass', '4l_mass', '4l_rapidity'], scaler_path = 'scaler.pkl', sample_size = 10000, batch_size: int = 32, random_state: int=None):
+    def __init__(self, numerator_file: str = '', denominator_file: str = '', analysis = 'h4l', features = ['cth_star', 'cth_1', 'cth_2', 'phi_1', 'phi', 'Z1_mass', 'Z2_mass', '4l_mass', '4l_rapidity'], scaler_path = 'scaler.pkl', sample_size = 10000, batch_size: int = 32, random_state: int=None):
         super().__init__()
 
         self.numerator_file = numerator_file
         self.denominator_file = denominator_file
+        self.analysis = analysis
         self.features = features
         self.scaler_path = scaler_path
         self.sample_size = sample_size
@@ -29,41 +29,36 @@ class BalancedDataModule(L.LightningDataModule):
         self.scaler = StandardScaler()
 
     def prepare_data(self):
-        # load samples with enough entries to sufficient size
-        events_numerator = mcfm.from_csv(cross_section=1.0, file_path=self.numerator_file)
-        events_denominator = mcfm.from_csv(cross_section=1.0, file_path=self.denominator_file)
+        events_num = mcfm.from_csv(cross_section=1.0, file_path=self.numerator_file)
+        events_denom = mcfm.from_csv(cross_section=1.0, file_path=self.denominator_file)
 
-        # apply filters and calculate kinematics
-        zcands = zpair.ZPairCandidate(algorithm='leastsquare')
-        zmasses = zpair.ZPairMassWindow(z1 = (70,115), z2 = (70,115))
-        h4lcp = zz4l.AngularVariables()
-        h4lp4 = zz4l.FourLeptonSystem()
-        h4l = zz4l.LeptonMomenta()
-        events_numerator = events_numerator.calculate(zcands).filter(zmasses).calculate(h4lcp).calculate(h4lp4).calculate(h4l)
-        events_denominator = events_denominator.calculate(zcands).filter(zmasses).calculate(h4lcp).calculate(h4lp4).calculate(h4l)
+        if self.analysis == 'h4l':
+            events_num = zz4l.analyze(events_num)
+            events_denom = zz4l.analyze(events_denom)
+        elif self.analysis == 'h2l2v':
+            events_num = zz2l2v.analyze(events_num)
+            events_denom = zz2l2v.analyze(events_denom)
 
         with open('events_num.pkl', 'wb') as f:
-            pickle.dump(events_numerator, f)
-
-        with open('events_den.pkl', 'wb') as f:
-            pickle.dump(events_denominator, f)
-
+            pickle.dump(events_num, f)
+        with open('events_denom.pkl', 'wb') as f:
+            pickle.dump(events_denom, f)
 
     def setup(self, stage: str):
         if stage =='fit':
+
             with open('events_num.pkl', 'rb') as fnum:
                 events_num = pickle.load(fnum)
-
-            with open('events_den.pkl', 'rb') as fden:
-                events_den = pickle.load(fden)
+            with open('events_denom.pkl', 'rb') as fden:
+                events_denom = pickle.load(fden)
 
             train_size, val_size, test_size = 1.0, 0.1, 0.1
-            events_numerator_train, events_numerator_val, events_numerator_test = events_num.unweight(self.sample_size,random_state=self.random_state).split(train_size=train_size, val_size=val_size, test_size=test_size)
-            events_denominator_train, events_denominator_val, events_denominator_test = events_den.unweight(self.sample_size,random_state=self.random_state).split(train_size=train_size, val_size=val_size, test_size=test_size)
+            events_num_train, events_num_val, events_num_test = events_num.unweight(self.sample_size,random_state=self.random_state).split(train_size=train_size, val_size=val_size, test_size=test_size)
+            events_denom_train, events_denom_val, events_denom_test = events_denom.unweight(self.sample_size,random_state=self.random_state).split(train_size=train_size, val_size=val_size, test_size=test_size)
 
-            self.training_data = BalancedDataset(events_numerator_train, events_denominator_train, self.features)
-            self.validation_data = BalancedDataset(events_numerator_val, events_denominator_val, self.features)
-            self.testing_data = BalancedDataset(events_numerator_test, events_denominator_test, self.features)
+            self.training_data = BalancedDataset(events_num_train, events_denom_train, self.features)
+            self.validation_data = BalancedDataset(events_num_val, events_denom_val, self.features)
+            self.testing_data = BalancedDataset(events_num_test, events_denom_test, self.features)
 
             # Apply Scaler to both datasets after fitting to training data
             self.training_data.X = self.scaler.fit_transform(self.training_data.X)
