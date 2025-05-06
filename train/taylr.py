@@ -20,7 +20,7 @@ components = {
 }
 
 def main(args):
-    dm = coefficient.RolypolyDataModule(
+    dm = coefficient.CoefficientDataModule(
                                    file_path = args.events, 
                                    features = args.features,
                                    coefficient_index = args.coefficient_index,
@@ -58,6 +58,7 @@ if __name__ == "__main__":
     parser.add_argument('--features', type=str, nargs='+', default= ['cth_star', 'cth_1', 'cth_2', 'phi_1', 'phi', 'Z1_mass', 'Z2_mass', '4l_mass', '4l_rapidity'], help='Features to train on')
     parser.add_argument('--n-layers', type=int, default=10, help='Number of layers')
     parser.add_argument('--n-nodes', type=int, default=100, help='Number of hidden nodes')
+    parser.add_argument('--max-epochs', type=int, default=300, help='Maximum number of epochs')
     parser.add_argument('--sample-size', type=int, default=10000, help='Number of examples')
     parser.add_argument('--coefficient-index', type=int, default=1, help='Index of polynomial coefficient')
     parser.add_argument('--component', type=str, default='sbi', help='Process component')

@@ -77,13 +77,13 @@ class BalancedDataModule(L.LightningDataModule):
             self.testing_data.X, self.testing_data.s, self.testing_data.indices = shuffle(self.testing_data.X, self.testing_data.s, np.arange(len(self.testing_data.s)), random_state=self.random_state)
 
     def train_dataloader(self):
-        return DataLoader(self.training_data, batch_size=self.batch_size)
+        return DataLoader(self.training_data, batch_size=self.batch_size, num_workers=8)
 
     def val_dataloader(self):
-        return DataLoader(self.validation_data, batch_size=self.batch_size)
+        return DataLoader(self.validation_data, batch_size=self.batch_size, num_workers=8)
 
     def test_dataloader(self):
-        return DataLoader(self.testing_data, batch_size=self.batch_size)
+        return DataLoader(self.testing_data, batch_size=self.batch_size, num_workers=8)
 
 class BalancedDataset(Dataset):
     def __init__(self, events_sig, events_bkg, features):

@@ -31,21 +31,21 @@ class TAYLR(L.LightningModule):
 
     def training_step(self, batch, batch_idx):
         x, y, w = batch
-        y_hat = self.model(x).view(-1)
         y = y.view(-1)
         w = w.view(-1)
+        y_hat = self.model(x).view(-1)
         loss = self.loss_fn(y_hat, y)
-        loss = (loss * w).mean()
+        loss = (loss * w).sum() / w.sum()
         self.log("train_loss", loss, on_step=False, on_epoch=True, prog_bar=False, sync_dist=True)
         return loss
 
     def validation_step(self, batch, batch_idx):
         x, y, w = batch
-        y_hat = self.model(x).view(-1)
         y = y.view(-1)
         w = w.view(-1)
+        y_hat = self.model(x).view(-1)
         loss = self.loss_fn(y_hat, y)
-        loss = (loss * w).mean()
+        loss = (loss * w).sum() / w.sum()
         self.log("val_loss", loss, on_step=False, on_epoch=True, prog_bar=False, sync_dist=True)
         return loss
     

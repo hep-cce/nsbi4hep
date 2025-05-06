@@ -40,7 +40,7 @@ def main(args):
         filename='checkpoint-carl-train-{epoch:02d}-{train_loss:.2f}'
     )
 
-    trainer = Trainer(accelerator=args.accelerator, max_epochs=200, callbacks=[model_checkpoint_callback, model_best_train_checkpoint_callback], logger=CSVLogger('.'))
+    trainer = Trainer(accelerator=args.accelerator, max_epochs=args.max_epochs, callbacks=[model_checkpoint_callback, model_best_train_checkpoint_callback], logger=CSVLogger('.'))
 
     trainer.fit(model_carl, datamodule=dm)
 
@@ -51,6 +51,7 @@ if __name__ == "__main__":
     parser.add_argument('--features', type=str, nargs='+', default= ['cth_star', 'cth_1', 'cth_2', 'phi_1', 'phi', 'Z1_mass', 'Z2_mass', '4l_mass', '4l_rapidity'], help='Features to train on')
     parser.add_argument('--n-layers', type=int, default=10, help='Number of layers')
     parser.add_argument('--n-nodes', type=int, default=100, help='Number of hidden nodes')
+    parser.add_argument('--max-epochs', type=int, default=300, help='Maximum number of training epochs')
     parser.add_argument('--sample-size', type=int, default=10000, help='Number of hidden nodes')
     parser.add_argument('--batch-size', type=int, default=1024, help='Learning rate')
     parser.add_argument('--random-state', type=int, default=42, help='Random state')

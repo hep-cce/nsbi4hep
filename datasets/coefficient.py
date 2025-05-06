@@ -11,9 +11,9 @@ import lightning as L
 from torch.utils.data import DataLoader, Dataset
 import torch
 
-class RolypolyDataModule(L.LightningDataModule):
+class CoefficientDataModule(L.LightningDataModule):
 
-    def __init__(self, file_path: str = '', features = ['mandelstam_s', 'mandelstam_t', 'mandelstam_u'], coefficient_index=1, component = msq.Component.SBI, X_scaler_path = 'scaler_X.pkl', y_scaler_path = 'scaler_y.pkl', sample_size = 10000, batch_size: int = 32, random_state: int=None) -> None:
+    def __init__(self, file_path: str = '', features = ['mandelstam_s', 'mandelstam_t', 'mandelstam_u'], coefficient_index=1, component = msq.Component.SBI, scaler_path = 'scaler.pkl', sample_size = 10000, batch_size: int = 32, random_state: int=None) -> None:
         super().__init__()
 
         self.file_path = file_path
@@ -22,10 +22,8 @@ class RolypolyDataModule(L.LightningDataModule):
         self.sample_size = sample_size
         self.batch_size = batch_size
         self.random_state = random_state
-        self.X_scaler = StandardScaler()
-        self.X_scaler_path = X_scaler_path
-        self.y_scaler = StandardScaler()
-        self.y_scaler_path = y_scaler_path
+        self.scaler = StandardScaler()
+        self.scaler_path = scaler_path
         self.coefficient_index = coefficient_index
     
     def prepare_data(self):
@@ -47,24 +45,20 @@ class RolypolyDataModule(L.LightningDataModule):
         
         if stage=='fit':
 
-            events_train, events_val, events_test = events.sample(self.sample_size, random_state=self.random_state).split(train_size=0.8, val_size=0.1, test_size=0.1)
+            train_size, val_size, test_size= 1.0, 0.1, 0.1
+            # events_train, events_val, events_test = events.sample(self.sample_size, random_state=self.random_state).split(train_size=train_size, val_size=val_size, test_size=test_size)
+            events_train, events_val, events_test = events.split(train_size=train_size, val_size=val_size, test_size=test_size)
 
             self.training_data = CoefficientDataset(events_train, features=self.features, coefficient_index=self.coefficient_index, component=self.component)
             self.validation_data = CoefficientDataset(events_val, features=self.features, coefficient_index=self.coefficient_index, component=self.component)
             self.testing_data = CoefficientDataset(events_test, features=self.features, coefficient_index=self.coefficient_index, component=self.component)
 
             # Apply Scaler to both datasets after fitting to training data
-            self.training_data.X = self.X_scaler.fit_transform(self.training_data.X)
-            with open(self.X_scaler_path, 'wb') as f:
-                pickle.dump(self.X_scaler, f)
-            self.validation_data.X = self.X_scaler.transform(self.validation_data.X)
-            self.testing_data.X = self.X_scaler.transform(self.testing_data.X)
-
-            self.training_data.y = self.y_scaler.fit_transform(self.training_data.y[:,np.newaxis]).flatten()
-            with open(self.y_scaler_path, 'wb') as f:
-                pickle.dump(self.y_scaler, f)
-            self.validation_data.y = self.y_scaler.transform(self.validation_data.y[:,np.newaxis]).flatten()
-            self.testing_data.y = self.y_scaler.transform(self.testing_data.y[:,np.newaxis]).flatten()
+            self.training_data.X = self.scaler.fit_transform(self.training_data.X)
+            with open(self.scaler_path, 'wb') as f:
+                pickle.dump(self.scaler, f)
+            self.validation_data.X = self.scaler.transform(self.validation_data.X)
+            self.testing_data.X = self.scaler.transform(self.testing_data.X)
             
     def train_dataloader(self):
         return DataLoader(self.training_data, batch_size=self.batch_size, num_workers=8)
@@ -84,7 +78,7 @@ class CoefficientDataset(Dataset):
         
         self.X = events.kinematics[features].to_numpy()
         self.y = c6_mod.coefficients[:,coefficient_index]
-        self.w = events.probabilities.to_numpy() * len(events.probabilities)
+        self.w = events.weights.to_numpy()
 
     def __len__(self):
         return len(self.y)
