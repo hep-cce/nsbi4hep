@@ -1,7 +1,8 @@
 import torch
 from torch import nn
+
 import lightning as L
-import numpy as np
+from lightning.pytorch.callbacks import ModelCheckpoint, EarlyStopping
 
 class TAYLR(L.LightningModule):
 
@@ -25,6 +26,31 @@ class TAYLR(L.LightningModule):
         self.model.apply(init_weights)
 
         self.loss_fn = nn.MSELoss(reduction='none')
+
+    def configure_callbacks(self):
+        callbacks = super().configure_callbacks()
+
+        callbacks.append(ModelCheckpoint(
+            monitor="val_loss",
+            mode="min",
+            save_top_k=3,
+            filename="{epoch:02d}-{val_loss:.2f}"
+        ))
+
+        callbacks.append(ModelCheckpoint(
+            monitor="train_loss",
+            mode="min",
+            save_top_k=1,
+            filename="{epoch:02d}-{train_loss:.2f}"
+        ))
+
+        callbacks.append(EarlyStopping(
+            monitor="val_loss",
+            patience=10,
+            mode="min"
+        ))
+
+        return callbacks
 
     def forward(self, x):
         return self.model(x)

@@ -43,9 +43,12 @@ class BalancedDataModule(L.LightningDataModule):
             events_numerator = zz2l2v.analyze(events_numerator)
             events_denominator = zz2l2v.analyze(events_denominator)
 
-        train_size, val_size, test_size = 1.0, 0.05, 0.05
-        events_numerator_train, events_numerator_val, events_numerator_test = events_numerator.unweight(self.sample_size,random_state=self.random_state).split(train_size=train_size, val_size=val_size, test_size=test_size)
-        events_denominator_train, events_denominator_val, events_denominator_test = events_denominator.unweight(self.sample_size,random_state=self.random_state).split(train_size=train_size, val_size=val_size, test_size=test_size)
+        events_numerator = events_numerator.shuffle(random_state=self.random_state)
+        events_denominator = events_denominator.shuffle(random_state=self.random_state)
+
+        train_size, val_size, test_size = 1.0, 0.5, 0.5
+        events_numerator_train, events_numerator_val, events_numerator_test = [events.unweight(self.sample_size, random_state=self.random_state) for events in events_numerator.split(train_size=train_size, val_size=val_size, test_size=test_size)]
+        events_denominator_train, events_denominator_val, events_denominator_test = [events.unweight(self.sample_size, random_state=self.random_state) for events in events_denominator.split(train_size=train_size, val_size=val_size, test_size=test_size)]
 
         self.training_data = BalancedDataset(events_numerator_train, events_denominator_train, self.features, scaler = None, random_state = self.random_state)
         self.scaler.fit(self.training_data.X)

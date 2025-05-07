@@ -36,14 +36,14 @@ class CARL(L.LightningModule):
             monitor="val_loss",
             mode="min",
             save_top_k=3,
-            filename="carl-{epoch:02d}-{val_loss:.2f}"
+            filename="{epoch:02d}-{val_loss:.2f}"
         ))
 
         callbacks.append(ModelCheckpoint(
             monitor="train_loss",
             mode="min",
             save_top_k=1,
-            filename="carl-{epoch:02d}-{train_loss:.2f}"
+            filename="{epoch:02d}-{train_loss:.2f}"
         ))
 
         callbacks.append(EarlyStopping(

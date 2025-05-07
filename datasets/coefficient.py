@@ -49,27 +49,35 @@ class CoefficientDataModule(L.LightningDataModule):
         with open('events_test.pkl', 'wb') as f:
             pickle.dump(events_test, f)
 
-        scaler = StandardScaler()
-        scaler.fit(events.kinematics[self.features].to_numpy())
-        with open('scaler.pkl', 'wb') as f:
-            pickle.dump(scaler, f)
+        scaler_X = StandardScaler()
+        scaler_X.fit(events.kinematics[self.features].to_numpy())
+        with open('scaler_X.pkl', 'wb') as f:
+            pickle.dump(scaler_X, f)
+
+        scaler_y = StandardScaler(with_mean=False)
+        c6_mod = c6.Modifier(baseline=self.component, events=events, c6_values=[-5,-1,0,1,5]) if self.component!=msq.Component.INT else c6.Modifier(baseline=self.component, events=events, c6_values=[-5,0,5])
+        scaler_y.fit(c6_mod.coefficients[:,self.coefficient_index].reshape(-1, 1))
+        with open('scaler_y.pkl', 'wb') as f:
+            pickle.dump(scaler_y, f)
 
     def setup(self, stage: str):
-        with open('scaler.pkl', 'rb') as f:
-            scaler = pickle.load(f)
+        with open('scaler_X.pkl', 'rb') as f:
+            scaler_X = pickle.load(f)
+        with open('scaler_y.pkl', 'rb') as f:
+            scaler_y = pickle.load(f)
         
         if stage=='fit':
             with open('events_train.pkl', 'rb') as f:
                 events_train = pickle.load(f)
             with open('events_val.pkl', 'rb') as f: 
                 events_val = pickle.load(f)
-            self.training_data = CoefficientDataset(events_train, features=self.features, coefficient_index=self.coefficient_index, component=self.component, scaler=scaler)
-            self.validation_data = CoefficientDataset(events_val, features=self.features, coefficient_index=self.coefficient_index, component=self.component, scaler=scaler)
+            self.training_data = CoefficientDataset(events_train, features=self.features, coefficient_index=self.coefficient_index, component=self.component, scaler_X=scaler_X, scaler_y=scaler_y)
+            self.validation_data = CoefficientDataset(events_val, features=self.features, coefficient_index=self.coefficient_index, component=self.component, scaler_X=scaler_X, scaler_y=scaler_y)
 
         elif stage=='test':
             with open('events_test.pkl', 'rb') as f:
                 events_test = pickle.load(f)
-            self.testing_data = CoefficientDataset(events_test, features=self.features, coefficient_index=self.coefficient_index, component=self.component, scaler=scaler)
+            self.testing_data = CoefficientDataset(events_test, features=self.features, coefficient_index=self.coefficient_index, component=self.component, scaler_X=scaler_X, scaler_y=scaler_y)
             
     def train_dataloader(self):
         return DataLoader(self.training_data, batch_size=self.batch_size, num_workers=8)
@@ -82,7 +90,7 @@ class CoefficientDataModule(L.LightningDataModule):
 
 class CoefficientDataset(Dataset):
 
-    def __init__(self, events, features, coefficient_index, component = msq.Component.SBI, scaler = None):
+    def __init__(self, events, features, coefficient_index, component = msq.Component.SBI, scaler_X = None, scaler_y = None):
         super().__init__()
 
         c6_mod = c6.Modifier(baseline=component, events=events, c6_values=[-5,-1,0,1,5]) if component!=msq.Component.INT else c6.Modifier(baseline=component, events=events, c6_values=[-5,0,5])
@@ -91,8 +99,10 @@ class CoefficientDataset(Dataset):
         self.y = c6_mod.coefficients[:,coefficient_index]
         self.w = events.weights.to_numpy()
 
-        if scaler is not None:
-            self.X = scaler.transform(self.X)
+        if scaler_X is not None:
+            self.X = scaler_X.transform(self.X)
+        if scaler_y is not None:
+            self.y = scaler_y.transform(self.y.reshape(-1, 1)).reshape(-1)
 
     def __len__(self):
         return len(self.y)
