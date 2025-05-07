@@ -33,8 +33,8 @@ class BalancedDataModule(L.LightningDataModule):
 
     def prepare_data(self):
 
-        events_numerator = mcfm.from_csv(cross_section=1.0, file_path=self.numerator_file)
-        events_denominator = mcfm.from_csv(cross_section=1.0, file_path=self.denominator_file)
+        events_numerator = mcfm.from_csv(file_path=self.numerator_file)
+        events_denominator = mcfm.from_csv(file_path=self.denominator_file)
 
         if self.analysis == 'h4l':
             events_numerator = zz4l.analyze(events_numerator)

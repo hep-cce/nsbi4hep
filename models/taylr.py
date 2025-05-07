@@ -46,7 +46,7 @@ class TAYLR(L.LightningModule):
 
         callbacks.append(EarlyStopping(
             monitor="val_loss",
-            patience=10,
+            patience=20,
             mode="min"
         ))
 
@@ -62,6 +62,7 @@ class TAYLR(L.LightningModule):
         y_hat = self.model(x).view(-1)
         loss = self.loss_fn(y_hat, y)
         loss = (loss * w).sum() / w.sum()
+        # loss = loss.mean()
         self.log("train_loss", loss, on_step=False, on_epoch=True, prog_bar=False, sync_dist=True)
         return loss
 
@@ -72,6 +73,7 @@ class TAYLR(L.LightningModule):
         y_hat = self.model(x).view(-1)
         loss = self.loss_fn(y_hat, y)
         loss = (loss * w).sum() / w.sum()
+        # loss = loss.mean()
         self.log("val_loss", loss, on_step=False, on_epoch=True, prog_bar=False, sync_dist=True)
         return loss
     

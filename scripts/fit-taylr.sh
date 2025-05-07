@@ -6,10 +6,10 @@
     --data.events /ptmp/mpp/taepa/higgs-offshell-interpretation/data/ggZZ2e2m_sbi/events.csv \
     --data.component sbi \
     --data.coefficient 1 \
-    --data.sample_size 1200000 \
+    --data.sample_size 2000000 \
     --data.batch_size 1024 \
     --model.learning_rate 1e-4 \
-    --model.n_nodes 100 \
+    --model.n_nodes 1000 \
     --model.n_layers 10 \
     --trainer.accelerator auto \
     --trainer.devices 1 \
@@ -22,10 +22,10 @@
     --data.events /ptmp/mpp/taepa/higgs-offshell-interpretation/data/ggZZ2e2m_sbi/events.csv \
     --data.component sbi \
     --data.coefficient 2 \
-    --data.sample_size 1200000 \
+    --data.sample_size 2000000 \
     --data.batch_size 1024 \
     --model.learning_rate 1e-4 \
-    --model.n_nodes 100 \
+    --model.n_nodes 1000 \
     --model.n_layers 10 \
     --trainer.accelerator auto \
     --trainer.devices 1 \
@@ -38,10 +38,10 @@
     --data.events /ptmp/mpp/taepa/higgs-offshell-interpretation/data/ggZZ2e2m_sbi/events.csv \
     --data.component sbi \
     --data.coefficient 3 \
-    --data.sample_size 1200000 \
+    --data.sample_size 2000000 \
     --data.batch_size 1024 \
     --model.learning_rate 1e-4 \
-    --model.n_nodes 100 \
+    --model.n_nodes 1000 \
     --model.n_layers 10 \
     --trainer.accelerator auto \
     --trainer.devices 1 \
@@ -54,13 +54,12 @@
     --data.events /ptmp/mpp/taepa/higgs-offshell-interpretation/data/ggZZ2e2m_sbi/events.csv \
     --data.component sbi \
     --data.coefficient 4 \
-    --data.sample_size 1200000 \
+    --data.sample_size 2000000 \
     --data.batch_size 1024 \
     --model.learning_rate 1e-4 \
-    --model.n_nodes 100 \
+    --model.n_nodes 1000 \
     --model.n_layers 10 \
     --trainer.accelerator auto \
     --trainer.devices 1 \
     --trainer.max_epochs 300 \
     --seed_everything 42
-

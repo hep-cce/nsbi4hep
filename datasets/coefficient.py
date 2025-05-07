@@ -33,13 +33,13 @@ class CoefficientDataModule(L.LightningDataModule):
         self.coefficient_index = coefficient
     
     def prepare_data(self):
-        events = mcfm.from_csv(cross_section=1.0, file_path=self.file_path)
+        events = mcfm.from_csv(file_path=self.file_path)
         if self.analysis == 'h4l':
             events = zz4l.analyze(events)
         elif self.analysis == 'h2l2v':
             events = zz2l2v.analyze(events)
 
-        train_size, val_size, test_size= 1.0, 0.1, 0.1
+        train_size, val_size, test_size = 1.0, 0.5, 0.5
         events_train, events_val, events_test = events.sample(self.sample_size,random_state=self.random_state).split(train_size=train_size, val_size=val_size, test_size=test_size)
 
         with open('events_train.pkl', 'wb') as f:
@@ -55,7 +55,7 @@ class CoefficientDataModule(L.LightningDataModule):
             pickle.dump(scaler_X, f)
 
         scaler_y = StandardScaler(with_mean=False)
-        c6_mod = c6.Modifier(baseline=self.component, events=events, c6_values=[-5,-1,0,1,5]) if self.component!=msq.Component.INT else c6.Modifier(baseline=self.component, events=events, c6_values=[-5,0,5])
+        c6_mod = c6.Modifier(baseline=self.component, events=events_train, c6_values=[-5,-1,0,1,5]) if self.component!=msq.Component.INT else c6.Modifier(baseline=self.component, events=events, c6_values=[-5,0,5])
         scaler_y.fit(c6_mod.coefficients[:,self.coefficient_index].reshape(-1, 1))
         with open('scaler_y.pkl', 'wb') as f:
             pickle.dump(scaler_y, f)
@@ -63,10 +63,10 @@ class CoefficientDataModule(L.LightningDataModule):
     def setup(self, stage: str):
         with open('scaler_X.pkl', 'rb') as f:
             scaler_X = pickle.load(f)
-        with open('scaler_y.pkl', 'rb') as f:
-            scaler_y = pickle.load(f)
         
         if stage=='fit':
+            with open('scaler_y.pkl', 'rb') as f:
+                scaler_y = pickle.load(f)
             with open('events_train.pkl', 'rb') as f:
                 events_train = pickle.load(f)
             with open('events_val.pkl', 'rb') as f: 
@@ -77,7 +77,7 @@ class CoefficientDataModule(L.LightningDataModule):
         elif stage=='test':
             with open('events_test.pkl', 'rb') as f:
                 events_test = pickle.load(f)
-            self.testing_data = CoefficientDataset(events_test, features=self.features, coefficient_index=self.coefficient_index, component=self.component, scaler_X=scaler_X, scaler_y=scaler_y)
+            self.testing_data = CoefficientDataset(events_test, features=self.features, coefficient_index=self.coefficient_index, component=self.component, scaler_X=scaler_X)
             
     def train_dataloader(self):
         return DataLoader(self.training_data, batch_size=self.batch_size, num_workers=8)
@@ -97,7 +97,7 @@ class CoefficientDataset(Dataset):
         
         self.X = events.kinematics[features].to_numpy()
         self.y = c6_mod.coefficients[:,coefficient_index]
-        self.w = events.weights.to_numpy()
+        self.w = events.weights.to_numpy() * self.y.size / events.weights.sum()
 
         if scaler_X is not None:
             self.X = scaler_X.transform(self.X)

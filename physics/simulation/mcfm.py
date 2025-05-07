@@ -144,7 +144,23 @@ mcfm_component_c6 = {
     },
 }
 
-def from_csv(cross_section=1.0, *, file_path, n_rows=None):
+def from_csv(cross_section : float =1.0, *, file_path : str, n_rows : int =None):
+  """
+  Open an MCFM CSV file containing a physics process.
+
+  Parameters
+  ----------
+  cross_section : float, optional
+      The cross-section of the process in femtobarns (fb). Event weights will be normalized
+      so that their sum equals this value. Defaults to 1.0, meaning the weights are treated
+      as a probability density rather than a differential cross-section.
+
+  file_path : str
+      Path to the CSV file.
+
+  n_rows : int or None, optional
+      Number of rows to read from the CSV file. If None, all rows are read.
+  """
   df = pd.read_csv(file_path, nrows=n_rows, float_precision='round_trip')
   kinematics = df[mcfm_kinematics]
   components = df[mcfm_components]
@@ -200,17 +216,14 @@ class Process():
 
     if test_size is not None:
       total_size = train_size + val_size + test_size
-      train_size /= total_size
-      val_size /= total_size
-      test_size /= total_size
         
-      kinematics_train, kinematics_val_test, components_train, components_val_test, weights_train, weights_val_test = train_test_split(self.kinematics, self.components, self.weights, train_size=train_size, test_size=test_size+val_size, shuffle=False)
-      kinematics_val, kinematics_test, components_val, components_test, weights_val, weights_test = train_test_split(kinematics_val_test, components_val_test, weights_val_test, train_size=val_size, test_size=test_size, shuffle=False)
+      kinematics_train, kinematics_val_test, components_train, components_val_test, weights_train, weights_val_test = train_test_split(self.kinematics, self.components, self.weights, train_size=train_size/total_size, test_size=(val_size+test_size)/total_size, shuffle=False)
+      kinematics_val, kinematics_test, components_val, components_test, weights_val, weights_test = train_test_split(kinematics_val_test, components_val_test, weights_val_test, train_size=val_size/(val_size+test_size), test_size=test_size/(val_size+test_size), shuffle=False)
 
       # the weights now must be scaled up so the sum of weights remains the cross-section
-      weights_train /= train_size
-      weights_val /= val_size
-      weights_test /= test_size
+      weights_train /= (train_size/total_size)
+      weights_val /= (val_size/total_size)
+      weights_test /= (test_size/total_size)
 
       return Process(
         kinematics_train.reset_index(drop=True), components_train.reset_index(drop=True), weights_train.reset_index(drop=True)
@@ -241,13 +254,13 @@ class Process():
     sampled_events_indices = self.weights.sample(n=n, replace=False, weights=None, random_state=random_state).index
 
     # the weights now must be scaled up so the sum of weights remains the cross-section
-    sampled_weights = self.weights.loc[sampled_events_indices].reset_index(drop=True)
+    sampled_weights = self.weights.loc[sampled_events_indices]
     sampled_weights *= self.weights.sum() / sampled_weights.sum()
 
     return Process(
       self.kinematics.loc[sampled_events_indices].reset_index(drop=True),
       self.components.loc[sampled_events_indices].reset_index(drop=True),
-      sampled_weights
+      sampled_weights.reset_index(drop=True)
     )
 
   def unweight(self, n, random_state=None):
