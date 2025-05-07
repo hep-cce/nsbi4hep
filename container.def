@@ -10,16 +10,16 @@ From: pytorch/pytorch
 
     # Upgrade pip and install Python packages
     pip install --upgrade pip
-    pip install numpy scipy scikit-learn lightning scikit-hep matplotlib
+    pip install lightning[torch-extra] scikit-learn scikit-hep
 
 %environment
     export LC_ALL=C.UTF-8
     export LANG=C.UTF-8
 
 %labels
-    Author YourName
+    Author Tae Hyoun Park
     Version v1.0
-    Description "Singularity container based on pytorch with extra scientific packages and LaTeX"
+    Description "PyTorch-based image with additional python packages and LaTeX"
 
 %help
-    This container is based on the
+    This singularity image is based on the PyTorch docker container with additional python packages and LaTeX installation for ML-based HEP research & publications.

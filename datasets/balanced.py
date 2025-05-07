@@ -14,62 +14,83 @@ from physics.hzz import zz4l, zz2l2v
 
 class BalancedDataModule(L.LightningDataModule):
 
-    def __init__(self, numerator_file: str = '', denominator_file: str = '', analysis = 'h4l', features = ['cth_star', 'cth_1', 'cth_2', 'phi_1', 'phi', 'Z1_mass', 'Z2_mass', '4l_mass', '4l_rapidity'], scaler_path = 'scaler.pkl', sample_size = 10000, batch_size: int = 32, random_state: int=None):
+    def __init__(self, numerator_events: str = '', denominator_events: str = '', analysis = 'h4l', features = ['cth_star', 'cth_1', 'cth_2', 'phi_1', 'phi', 'Z1_mass', 'Z2_mass', '4l_mass', '4l_rapidity'], sample_size = 10000, batch_size: int = 32, random_state: int=None, data_dir : str = './'):
         super().__init__()
 
-        self.numerator_file = numerator_file
-        self.denominator_file = denominator_file
         self.analysis = analysis
         self.features = features
-        self.scaler_path = scaler_path
+
+        self.numerator_file = numerator_events
+        self.denominator_file = denominator_events
+
         self.sample_size = sample_size
+
         self.batch_size = batch_size
         self.random_state = random_state
 
+        self.data_dir = data_dir
         self.scaler = StandardScaler()
 
     def prepare_data(self):
-        events_num = mcfm.from_csv(cross_section=1.0, file_path=self.numerator_file)
-        events_denom = mcfm.from_csv(cross_section=1.0, file_path=self.denominator_file)
+
+        events_numerator = mcfm.from_csv(cross_section=1.0, file_path=self.numerator_file)
+        events_denominator = mcfm.from_csv(cross_section=1.0, file_path=self.denominator_file)
 
         if self.analysis == 'h4l':
-            events_num = zz4l.analyze(events_num)
-            events_denom = zz4l.analyze(events_denom)
+            events_numerator = zz4l.analyze(events_numerator)
+            events_denominator = zz4l.analyze(events_denominator)
         elif self.analysis == 'h2l2v':
-            events_num = zz2l2v.analyze(events_num)
-            events_denom = zz2l2v.analyze(events_denom)
+            events_numerator = zz2l2v.analyze(events_numerator)
+            events_denominator = zz2l2v.analyze(events_denominator)
 
-        with open('events_num.pkl', 'wb') as f:
-            pickle.dump(events_num, f)
-        with open('events_denom.pkl', 'wb') as f:
-            pickle.dump(events_denom, f)
+        train_size, val_size, test_size = 1.0, 0.05, 0.05
+        events_numerator_train, events_numerator_val, events_numerator_test = events_numerator.unweight(self.sample_size,random_state=self.random_state).split(train_size=train_size, val_size=val_size, test_size=test_size)
+        events_denominator_train, events_denominator_val, events_denominator_test = events_denominator.unweight(self.sample_size,random_state=self.random_state).split(train_size=train_size, val_size=val_size, test_size=test_size)
+
+        self.training_data = BalancedDataset(events_numerator_train, events_denominator_train, self.features, scaler = None, random_state = self.random_state)
+        self.scaler.fit(self.training_data.X)
+
+        # save stuff for later
+        with open(os.path.join(self.data_dir, 'scaler.pkl'), 'wb') as f:
+            pickle.dump(self.scaler, f)
+        with open(os.path.join(self.data_dir, 'events_numerator_train.pkl'), 'wb') as f:
+            pickle.dump(events_numerator_train, f)
+        with open(os.path.join(self.data_dir, 'events_denominator_train.pkl'), 'wb') as f:
+            pickle.dump(events_denominator_train, f)
+        with open(os.path.join(self.data_dir, 'events_numerator_val.pkl'), 'wb') as f:
+            pickle.dump(events_numerator_val, f)
+        with open(os.path.join(self.data_dir, 'events_denominator_val.pkl'), 'wb') as f:
+            pickle.dump(events_denominator_val, f)
+        with open(os.path.join(self.data_dir, 'events_numerator_test.pkl'), 'wb') as f:
+            pickle.dump(events_numerator_test, f)
+        with open(os.path.join(self.data_dir, 'events_denominator_test.pkl'), 'wb') as f:
+            pickle.dump(events_denominator_test, f)
 
     def setup(self, stage: str):
-        if stage =='fit':
 
-            with open('events_num.pkl', 'rb') as fnum:
-                events_num = pickle.load(fnum)
-            with open('events_denom.pkl', 'rb') as fden:
-                events_denom = pickle.load(fden)
+        if stage == 'fit':
 
-            train_size, val_size, test_size = 1.0, 0.1, 0.1
-            events_num_train, events_num_val, events_num_test = events_num.unweight(self.sample_size,random_state=self.random_state).split(train_size=train_size, val_size=val_size, test_size=test_size)
-            events_denom_train, events_denom_val, events_denom_test = events_denom.unweight(self.sample_size,random_state=self.random_state).split(train_size=train_size, val_size=val_size, test_size=test_size)
+            with open(os.path.join(self.data_dir, 'scaler.pkl'), 'rb') as f:
+                self.scaler = pickle.load(f)
+            with open(os.path.join(self.data_dir, 'events_numerator_train.pkl'), 'rb') as f:
+                events_numerator_train = pickle.load(f)
+            with open(os.path.join(self.data_dir, 'events_denominator_train.pkl'), 'rb') as f:
+                events_denominator_train = pickle.load(f)
+            with open(os.path.join(self.data_dir, 'events_numerator_val.pkl'), 'rb') as f:
+                events_numerator_val = pickle.load(f)
+            with open(os.path.join(self.data_dir, 'events_denominator_val.pkl'), 'rb') as f:
+                events_denominator_val = pickle.load(f)
 
-            self.training_data = BalancedDataset(events_num_train, events_denom_train, self.features)
-            self.validation_data = BalancedDataset(events_num_val, events_denom_val, self.features)
-            self.testing_data = BalancedDataset(events_num_test, events_denom_test, self.features)
+            self.training_data = BalancedDataset(events_numerator_train, events_denominator_train, self.features, scaler = self.scaler, random_state=self.random_state)
+            self.validation_data = BalancedDataset(events_numerator_val, events_denominator_val, self.features, scaler = self.scaler, random_state=self.random_state)
 
-            # Apply Scaler to both datasets after fitting to training data
-            self.training_data.X = self.scaler.fit_transform(self.training_data.X)
-            with open(self.scaler_path, 'wb') as f:
-                pickle.dump(self.scaler, f)
-            self.validation_data.X = self.scaler.transform(self.validation_data.X)
-            self.testing_data.X = self.scaler.transform(self.testing_data.X)
+        elif stage == 'test':
+            with open(os.path.join(self.data_dir, 'events_numerator_test.pkl'), 'rb') as f:
+                events_numerator_test = pickle.load(f)
+            with open(os.path.join(self.data_dir, 'events_denominator_test.pkl'), 'rb') as f:
+                events_denominator_test = pickle.load(f)
 
-            self.training_data.X, self.training_data.s, self.training_data.indices = shuffle(self.training_data.X, self.training_data.s, np.arange(len(self.training_data.s)), random_state=self.random_state)
-            self.validation_data.X, self.validation_data.s, self.validation_data.indices = shuffle(self.validation_data.X, self.validation_data.s, np.arange(len(self.validation_data.s)), random_state=self.random_state)
-            self.testing_data.X, self.testing_data.s, self.testing_data.indices = shuffle(self.testing_data.X, self.testing_data.s, np.arange(len(self.testing_data.s)), random_state=self.random_state)
+            self.testing_data = BalancedDataset(events_numerator_test, events_denominator_test, self.features, scaler = self.scaler, random_state=self.random_state)
 
     def train_dataloader(self):
         return DataLoader(self.training_data, batch_size=self.batch_size, num_workers=8)
@@ -81,14 +102,19 @@ class BalancedDataModule(L.LightningDataModule):
         return DataLoader(self.testing_data, batch_size=self.batch_size, num_workers=8)
 
 class BalancedDataset(Dataset):
-    def __init__(self, events_sig, events_bkg, features):
+    def __init__(self, events_numerator = None, events_denominator = None, features = None, scaler = None, random_state = None):
         super().__init__()
         # Get only required features
-        X_sig = events_sig.kinematics[features].to_numpy()
-        X_bkg = events_bkg.kinematics[features].to_numpy()
+        X_numerator = events_numerator.kinematics[features].to_numpy()
+        X_denominator = events_denominator.kinematics[features].to_numpy()
 
-        self.X = np.concatenate([X_sig, X_bkg])
-        self.s = np.concatenate([np.ones(len(X_sig)), np.zeros(len(X_bkg))])
+        self.X = np.concatenate([X_numerator, X_denominator])
+        self.s = np.concatenate([np.ones(len(X_numerator)), np.zeros(len(X_denominator))])
+
+        if scaler is not None:
+            self.X = scaler.transform(self.X)
+        
+        self.X, self.s, self.indices = shuffle(self.X, self.s, np.arange(len(self.s)), random_state=random_state)
     
     def __len__(self):
         return len(self.s)
