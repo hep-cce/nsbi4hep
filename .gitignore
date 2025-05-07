@@ -1,8 +1,6 @@
 __pycache__/
 *.egg-info/
 
-venv*/
-
 data/
 run/
 jobs/
@@ -11,6 +9,7 @@ jobs/
 **/checkpoints/
 **/.ipynb_checkpoints/
 
+*.pkl
 *.sif
 *.dat
 *.csv
