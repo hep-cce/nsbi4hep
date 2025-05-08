@@ -30,16 +30,6 @@ mcfm_components = [
   'msq_sig_bsm_9', 'msq_int_bsm_9', 'msq_sbi_bsm_9',
   'msq_sig_bsm_10', 'msq_int_bsm_10', 'msq_sbi_bsm_10',
   'msq_sig_bsm_11', 'msq_int_bsm_11', 'msq_sbi_bsm_11',
-  'msq_sig_bsm_12', 'msq_int_bsm_12', 'msq_sbi_bsm_12',
-  'msq_sig_bsm_13', 'msq_int_bsm_13', 'msq_sbi_bsm_13',
-  'msq_sig_bsm_14', 'msq_int_bsm_14', 'msq_sbi_bsm_14',
-  'msq_sig_bsm_15', 'msq_int_bsm_15', 'msq_sbi_bsm_15',
-  'msq_sig_bsm_16', 'msq_int_bsm_16', 'msq_sbi_bsm_16',
-  'msq_sig_bsm_17', 'msq_int_bsm_17', 'msq_sbi_bsm_17',
-  'msq_sig_bsm_18', 'msq_int_bsm_18', 'msq_sbi_bsm_18',
-  'msq_sig_bsm_19', 'msq_int_bsm_19', 'msq_sbi_bsm_19',
-  'msq_sig_bsm_20', 'msq_int_bsm_20', 'msq_sbi_bsm_20',
-  'msq_sig_bsm_21', 'msq_int_bsm_21', 'msq_sbi_bsm_21'
 ]
 
 mcfm_component_sm = {
@@ -51,97 +41,57 @@ mcfm_component_sm = {
 
 mcfm_component_c6 = {
   Component.SBI: {
-    -10.0: 'msq_sbi_bsm_1',
-    -9.0: 'msq_sbi_bsm_2',
-    -8.0: 'msq_sbi_bsm_3',
-    -7.0: 'msq_sbi_bsm_4',
-    -6.0: 'msq_sbi_bsm_5',
-    -5.0: 'msq_sbi_bsm_6',
-    -4.0: 'msq_sbi_bsm_7',
-    -3.0: 'msq_sbi_bsm_8',
-    -2.0: 'msq_sbi_bsm_9',
-    -1.0: 'msq_sbi_bsm_10',
-    0.0: 'msq_sbi_bsm_11',
-    1.0: 'msq_sbi_bsm_12',
-    2.0: 'msq_sbi_bsm_13',
-    3.0: 'msq_sbi_bsm_14',
-    4.0: 'msq_sbi_bsm_15',
-    5.0: 'msq_sbi_bsm_16',
-    6.0: 'msq_sbi_bsm_17',
-    7.0: 'msq_sbi_bsm_18',
-    8.0: 'msq_sbi_bsm_19',
-    9.0: 'msq_sbi_bsm_20',
-    10.0: 'msq_sbi_bsm_21',
-    },
+    -25.0 : 'msq_sbi_bsm_1',
+    -20.0 : 'msq_sbi_bsm_2',
+    -15.0 : 'msq_sbi_bsm_3',
+    -10.0 : 'msq_sbi_bsm_4',
+     -5.0 : 'msq_sbi_bsm_5',
+      0.0 : 'msq_sbi_bsm_6',
+      5.0 : 'msq_sbi_bsm_7',
+     10.0 : 'msq_sbi_bsm_8',
+     15.0 : 'msq_sbi_bsm_9',
+     20.0 : 'msq_sbi_bsm_10',
+     25.0 : 'msq_sbi_bsm_11',
+  },
   Component.INT: {
-    -10.0: 'msq_int_bsm_1',
-    -9.0: 'msq_int_bsm_2',
-    -8.0: 'msq_int_bsm_3',
-    -7.0: 'msq_int_bsm_4',
-    -6.0: 'msq_int_bsm_5',
-    -5.0: 'msq_int_bsm_6',
-    -4.0: 'msq_int_bsm_7',
-    -3.0: 'msq_int_bsm_8',
-    -2.0: 'msq_int_bsm_9',
-    -1.0: 'msq_int_bsm_10',
-    0.0: 'msq_int_bsm_11',
-    1.0: 'msq_int_bsm_12',
-    2.0: 'msq_int_bsm_13',
-    3.0: 'msq_int_bsm_14',
-    4.0: 'msq_int_bsm_15',
-    5.0: 'msq_int_bsm_16',
-    6.0: 'msq_int_bsm_17',
-    7.0: 'msq_int_bsm_18',
-    8.0: 'msq_int_bsm_19',
-    9.0: 'msq_int_bsm_20',
-    10.0: 'msq_int_bsm_21',
+    -25.0 : 'msq_int_bsm_1',
+    -20.0 : 'msq_int_bsm_2',
+    -15.0 : 'msq_int_bsm_3',
+    -10.0 : 'msq_int_bsm_4',
+     -5.0 : 'msq_int_bsm_5',
+      0.0 : 'msq_int_bsm_6',
+      5.0 : 'msq_int_bsm_7',
+     10.0 : 'msq_int_bsm_8',
+     15.0 : 'msq_int_bsm_9',
+     20.0 : 'msq_int_bsm_10',
+     25.0 : 'msq_int_bsm_11',
     },
   Component.SIG: {
-    -10.0: 'msq_sig_bsm_1',
-    -9.0: 'msq_sig_bsm_2',
-    -8.0: 'msq_sig_bsm_3',
-    -7.0: 'msq_sig_bsm_4',
-    -6.0: 'msq_sig_bsm_5',
-    -5.0: 'msq_sig_bsm_6',
-    -4.0: 'msq_sig_bsm_7',
-    -3.0: 'msq_sig_bsm_8',
-    -2.0: 'msq_sig_bsm_9',
-    -1.0: 'msq_sig_bsm_10',
-    0.0: 'msq_sig_bsm_11',
-    1.0: 'msq_sig_bsm_12',
-    2.0: 'msq_sig_bsm_13',
-    3.0: 'msq_sig_bsm_14',
-    4.0: 'msq_sig_bsm_15',
-    5.0: 'msq_sig_bsm_16',
-    6.0: 'msq_sig_bsm_17',
-    7.0: 'msq_sig_bsm_18',
-    8.0: 'msq_sig_bsm_19',
-    9.0: 'msq_sig_bsm_20',
-    10.0: 'msq_sig_bsm_21',
+    -25.0 : 'msq_sig_bsm_1',
+    -20.0 : 'msq_sig_bsm_2',
+    -15.0 : 'msq_sig_bsm_3',
+    -10.0 : 'msq_sig_bsm_4',
+     -5.0 : 'msq_sig_bsm_5',
+      0.0 : 'msq_sig_bsm_6',
+      5.0 : 'msq_sig_bsm_7',
+     10.0 : 'msq_sig_bsm_8',
+     15.0 : 'msq_sig_bsm_9',
+     20.0 : 'msq_sig_bsm_10',
+     25.0 : 'msq_sig_bsm_11',
     },
   Component.BKG: {
-    -10.0: 'msq_bkg_sm',
-    -9.0: 'msq_bkg_sm',
-    -8.0: 'msq_bkg_sm',
-    -7.0: 'msq_bkg_sm',
-    -6.0: 'msq_bkg_sm',
-    -5.0: 'msq_bkg_sm',
-    -4.0: 'msq_bkg_sm',
-    -3.0: 'msq_bkg_sm',
-    -2.0: 'msq_bkg_sm',
-    -1.0: 'msq_bkg_sm',
-    0.0: 'msq_bkg_sm',
-    1.0: 'msq_bkg_sm',
-    2.0: 'msq_bkg_sm',
-    3.0: 'msq_bkg_sm',
-    4.0: 'msq_bkg_sm',
-    5.0: 'msq_bkg_sm',
-    6.0: 'msq_bkg_sm',
-    7.0: 'msq_bkg_sm',
-    8.0: 'msq_bkg_sm',
-    9.0: 'msq_bkg_sm',
-    10.0: 'msq_bkg_sm',
-    },
+    -25.0 : 'msq_bkg_sm',
+    -20.0 : 'msq_bkg_sm',
+    -15.0 : 'msq_bkg_sm',
+    -10.0 : 'msq_bkg_sm',
+     -5.0 : 'msq_bkg_sm',
+      0.0 : 'msq_bkg_sm',
+      5.0 : 'msq_bkg_sm',
+     10.0 : 'msq_bkg_sm',
+     15.0 : 'msq_bkg_sm',
+     20.0 : 'msq_bkg_sm',
+     25.0 : 'msq_bkg_sm',
+  },
 }
 
 def from_csv(cross_section : float =1.0, *, file_path : str, n_rows : int =None):
@@ -165,7 +115,6 @@ def from_csv(cross_section : float =1.0, *, file_path : str, n_rows : int =None)
   kinematics = df[mcfm_kinematics]
   components = df[mcfm_components]
   weights = df[mcfm_weight]
-  # print(weights.sum())
   weights *= cross_section / weights.sum() 
   return Process(kinematics, components, weights)
 
@@ -175,9 +124,9 @@ class Process():
     self.kinematics = kinematics
     self.components = components
     # HACK: to avoid negative weights
-    # only e.g. 2/2M events have infinitesimally-small negative weights due to numerical precision
-    # if weights.sum() > 0.0:
-    #   weights[weights < 0] = 0.0
+    # only e.g. O(1)/O(1M) events have infinitesimally-small negative weights due to numerical precision
+    if weights.sum() > 0.0: # only for non-interference sample
+      weights[weights < 0] = 0.0
     self.weights = weights
     self.probabilities = weights / weights.sum()
 

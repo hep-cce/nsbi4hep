@@ -4,7 +4,7 @@ from ..simulation import mcfm
 
 class Modifier():
 
-  def __init__(self, baseline, events, c6_values = [-5,-1,0,1,5]):
+  def __init__(self, baseline, events, c6_values = [-10, -5, 0, 5, 10]):
     self.baseline = baseline
     self.events = events
     self.c6_values = np.array(c6_values)

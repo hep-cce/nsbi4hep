@@ -9,7 +9,7 @@
     --data.batch_size 1024 \
     --model.learning_rate 1e-5 \
     --model.n_nodes 1000 \
-    --model.n_layers 10 \
+    --model.n_layers 20 \
     --trainer.devices 1 \
     --trainer.max_epochs 300 \
     --seed_everything 42
