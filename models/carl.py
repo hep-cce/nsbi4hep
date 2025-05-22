@@ -59,26 +59,23 @@ class CARL(L.LightningModule):
 
     def training_step(self, batch, batch_idx):
         x, y = batch
-        y_hat = self.model(x).view(-1)
-        y = y.view(-1)
+        y_hat = self.model(x).flatten()
+        y = y.flatten()
         loss = self.loss_fn(y_hat, y)
         self.log("train_loss", loss, on_step=False, on_epoch=True, prog_bar=True, sync_dist=True)
         return loss
 
     def validation_step(self, batch, batch_idx):
         x, y = batch
-        y_hat = self.model(x).view(-1)
-        y = y.view(-1)
+        y_hat = self.model(x).flatten()
+        y = y.flatten()
         loss = self.loss_fn(y_hat, y)
         self.log("val_loss", loss, on_step=False, on_epoch=True, prog_bar=True, sync_dist=True)
         return loss
     
     def predict_step(self, batch, batch_idx):
-        if len(batch) == 2:
-            x, y = batch
-        else:
-            x = batch[0]
-        return self.model(x).view(-1)
+        x, _ = batch
+        return self.model(x).flatten()
 
     def configure_optimizers(self):
         # NAdam optimizer

@@ -57,29 +57,25 @@ class TAYLR(L.LightningModule):
 
     def training_step(self, batch, batch_idx):
         x, y, w = batch
-        y = y.view(-1)
-        w = w.view(-1)
-        y_hat = self.model(x).view(-1)
-        loss = self.loss_fn(y_hat, y)
-        loss = (loss * w).sum() / w.sum()
-        # loss = loss.mean()
+        w = w.flatten()
+        y = y.flatten()
+        yhat = self.model(x).flatten()
+        loss = (self.loss_fn(yhat, y) * w).sum() / w.sum()
         self.log("train_loss", loss, on_step=False, on_epoch=True, prog_bar=False, sync_dist=True)
         return loss
 
     def validation_step(self, batch, batch_idx):
         x, y, w = batch
-        y = y.view(-1)
-        w = w.view(-1)
-        y_hat = self.model(x).view(-1)
-        loss = self.loss_fn(y_hat, y)
-        loss = (loss * w).sum() / w.sum()
-        # loss = loss.mean()
+        y = y.flatten()
+        w = w.flatten()
+        yhat = self.model(x).flatten()
+        loss = (self.loss_fn(yhat, y) * w).sum() / w.sum()
         self.log("val_loss", loss, on_step=False, on_epoch=True, prog_bar=False, sync_dist=True)
         return loss
     
     def predict_step(self, batch, batch_idx):
         x, y, w = batch
-        return self.model(x).view(-1)
+        return self.model(x).flatten()
 
     def configure_optimizers(self):
         optimizer = torch.optim.NAdam(self.parameters(), lr=self.lr)

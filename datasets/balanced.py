@@ -36,17 +36,17 @@ class BalancedDataModule(L.LightningDataModule):
         events_numerator = mcfm.from_csv(file_path=self.numerator_file)
         events_denominator = mcfm.from_csv(file_path=self.denominator_file)
 
-        if self.analysis == 'h4l':
+        if self.analysis == '4l':
             events_numerator = zz4l.analyze(events_numerator)
             events_denominator = zz4l.analyze(events_denominator)
-        elif self.analysis == 'h2l2v':
+        elif self.analysis == '2l2v':
             events_numerator = zz2l2v.analyze(events_numerator)
             events_denominator = zz2l2v.analyze(events_denominator)
 
         events_numerator = events_numerator.shuffle(random_state=self.random_state)
         events_denominator = events_denominator.shuffle(random_state=self.random_state)
 
-        train_size, val_size, test_size = 1.0, 0.5, 0.5
+        train_size, val_size, test_size = 0.8, 0.1, 0.1
         events_numerator_train, events_numerator_val, events_numerator_test = [events.unweight(self.sample_size, random_state=self.random_state) for events in events_numerator.split(train_size=train_size, val_size=val_size, test_size=test_size)]
         events_denominator_train, events_denominator_val, events_denominator_test = [events.unweight(self.sample_size, random_state=self.random_state) for events in events_denominator.split(train_size=train_size, val_size=val_size, test_size=test_size)]
 

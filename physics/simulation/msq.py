@@ -1,11 +1,11 @@
 from enum import Enum
 import numpy as np
 
-class Component(Enum):
-  SBI = 4
-  SIG = 1
-  INT = 2
-  BKG = 3
+class Component(str, Enum):
+  SBI = "sbi"
+  SIG = "sig"
+  INT = "int"
+  BKG = "bkg"
 
 class MSQFilter():
   def __init__(self, component, value):

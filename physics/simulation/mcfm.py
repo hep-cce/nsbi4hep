@@ -1,12 +1,13 @@
 import pandas as pd
 import numpy as np
+from itertools import product
 
 from sklearn.model_selection import train_test_split
 from sklearn.utils import shuffle
 
 from .msq import Component
 
-mcfm_kinematics = [
+csv_kinematics = [
   'p1_px','p1_py','p1_pz','p1_E',
   'p2_px','p2_py','p2_pz','p2_E',
   'p3_px','p3_py','p3_pz','p3_E',
@@ -15,106 +16,62 @@ mcfm_kinematics = [
   'p6_px','p6_py','p6_pz','p6_E',
 ]
 
-mcfm_weight = 'wt'
+csv_weight = 'wt'
 
-mcfm_components = [
-  'msq_sbi_sm', 'msq_sig_sm', 'msq_bkg_sm', 'msq_int_sm',
-  'msq_sig_bsm_1', 'msq_int_bsm_1', 'msq_sbi_bsm_1',
-  'msq_sig_bsm_2', 'msq_int_bsm_2', 'msq_sbi_bsm_2',
-  'msq_sig_bsm_3', 'msq_int_bsm_3', 'msq_sbi_bsm_3',
-  'msq_sig_bsm_4', 'msq_int_bsm_4', 'msq_sbi_bsm_4',
-  'msq_sig_bsm_5', 'msq_int_bsm_5', 'msq_sbi_bsm_5',
-  'msq_sig_bsm_6', 'msq_int_bsm_6', 'msq_sbi_bsm_6',
-  'msq_sig_bsm_7', 'msq_int_bsm_7', 'msq_sbi_bsm_7',
-  'msq_sig_bsm_8', 'msq_int_bsm_8', 'msq_sbi_bsm_8',
-  'msq_sig_bsm_9', 'msq_int_bsm_9', 'msq_sbi_bsm_9',
-  'msq_sig_bsm_10', 'msq_int_bsm_10', 'msq_sbi_bsm_10',
-  'msq_sig_bsm_11', 'msq_int_bsm_11', 'msq_sbi_bsm_11',
+c6_values = [-20, -10, 0, 10, 20]
+ct_values = [-1, 0, 1]
+cg_values = [-1, 0, 1]
+bsm_points = list(product(c6_values, ct_values, cg_values))
+n_bsm_points = len(c6_values) * len(ct_values) * len(cg_values)
+
+csv_components = [
+  f"msq_{comp}_sm" for comp in ["sig", "int", "sbi", "bkg"]
+] + [
+  f"msq_{comp}_bsm_{i}"
+  for comp in ["sig", "int", "sbi"]
+  for i in range(1, n_bsm_points+1)
 ]
 
-mcfm_component_sm = {
-  Component.SBI: 'msq_sbi_sm',
-  Component.SIG: 'msq_sig_sm',
-  Component.BKG: 'msq_bkg_sm',
-  Component.INT: 'msq_int_sm'
+csv_component_sm = {
+  comp: f"msq_{comp.value}_sm" for comp in Component
 }
 
-mcfm_component_c6 = {
-  Component.SBI: {
-    -25.0 : 'msq_sbi_bsm_1',
-    -20.0 : 'msq_sbi_bsm_2',
-    -15.0 : 'msq_sbi_bsm_3',
-    -10.0 : 'msq_sbi_bsm_4',
-     -5.0 : 'msq_sbi_bsm_5',
-      0.0 : 'msq_sbi_bsm_6',
-      5.0 : 'msq_sbi_bsm_7',
-     10.0 : 'msq_sbi_bsm_8',
-     15.0 : 'msq_sbi_bsm_9',
-     20.0 : 'msq_sbi_bsm_10',
-     25.0 : 'msq_sbi_bsm_11',
-  },
-  Component.INT: {
-    -25.0 : 'msq_int_bsm_1',
-    -20.0 : 'msq_int_bsm_2',
-    -15.0 : 'msq_int_bsm_3',
-    -10.0 : 'msq_int_bsm_4',
-     -5.0 : 'msq_int_bsm_5',
-      0.0 : 'msq_int_bsm_6',
-      5.0 : 'msq_int_bsm_7',
-     10.0 : 'msq_int_bsm_8',
-     15.0 : 'msq_int_bsm_9',
-     20.0 : 'msq_int_bsm_10',
-     25.0 : 'msq_int_bsm_11',
-    },
-  Component.SIG: {
-    -25.0 : 'msq_sig_bsm_1',
-    -20.0 : 'msq_sig_bsm_2',
-    -15.0 : 'msq_sig_bsm_3',
-    -10.0 : 'msq_sig_bsm_4',
-     -5.0 : 'msq_sig_bsm_5',
-      0.0 : 'msq_sig_bsm_6',
-      5.0 : 'msq_sig_bsm_7',
-     10.0 : 'msq_sig_bsm_8',
-     15.0 : 'msq_sig_bsm_9',
-     20.0 : 'msq_sig_bsm_10',
-     25.0 : 'msq_sig_bsm_11',
-    },
-  Component.BKG: {
-    -25.0 : 'msq_bkg_sm',
-    -20.0 : 'msq_bkg_sm',
-    -15.0 : 'msq_bkg_sm',
-    -10.0 : 'msq_bkg_sm',
-     -5.0 : 'msq_bkg_sm',
-      0.0 : 'msq_bkg_sm',
-      5.0 : 'msq_bkg_sm',
-     10.0 : 'msq_bkg_sm',
-     15.0 : 'msq_bkg_sm',
-     20.0 : 'msq_bkg_sm',
-     25.0 : 'msq_bkg_sm',
-  },
-}
+csv_component_c6 = {comp: {} for comp in Component}
+csv_component_bsm = {comp: {} for comp in Component}
+for idx, (c6, ct, cg) in enumerate(bsm_points, start=1):
+  for comp in [Component.SBI, Component.INT, Component.SIG]:
+    csv_component_bsm[comp][(c6, ct, cg)] = f"msq_{comp}_bsm_{idx}"
+    if ct == 0.0 and cg == 0.0:
+      csv_component_c6[comp][c6] = f"msq_{comp}_bsm_{idx}"
+  csv_component_bsm[Component.BKG][(c6, ct, cg)] = "msq_bkg_sm"
+  if ct == 0.0 and cg == 0.0:
+    csv_component_c6[Component.BKG][c6] = "msq_bkg_sm"
 
-def from_csv(cross_section : float =1.0, *, file_path : str, n_rows : int =None):
+def from_csv(file_path : str, *, cross_section : float =1.0, n_rows : int =None):
   """
   Open an MCFM CSV file containing a physics process.
 
   Parameters
   ----------
+  file_path : str
+      Path to the CSV file.
+
   cross_section : float, optional
       The cross-section of the process in femtobarns (fb). Event weights will be normalized
       so that their sum equals this value. Defaults to 1.0, meaning the weights are treated
       as a probability density rather than a differential cross-section.
 
-  file_path : str
-      Path to the CSV file.
-
   n_rows : int or None, optional
       Number of rows to read from the CSV file. If None, all rows are read.
   """
   df = pd.read_csv(file_path, nrows=n_rows, float_precision='round_trip')
-  kinematics = df[mcfm_kinematics]
-  components = df[mcfm_components]
-  weights = df[mcfm_weight]
+  kinematics = df[csv_kinematics]
+  components = df[csv_components]
+  weights = df[csv_weight]
+
+  # # TEMPORARY CHECK
+  # weights[weights > 0.001] = 0.0
+
   weights *= cross_section / weights.sum() 
   return Process(kinematics, components, weights)
 
@@ -123,11 +80,13 @@ class Process():
   def __init__(self, kinematics=None, components=None, weights=None):
     self.kinematics = kinematics
     self.components = components
+
     # HACK: to avoid negative weights
     # only e.g. O(1)/O(1M) events have infinitesimally-small negative weights due to numerical precision
     if weights.sum() > 0.0: # only for non-interference sample
       weights[weights < 0] = 0.0
     self.weights = weights
+
     self.probabilities = weights / weights.sum()
 
   def calculate(self, calculator):
@@ -170,9 +129,10 @@ class Process():
       kinematics_val, kinematics_test, components_val, components_test, weights_val, weights_test = train_test_split(kinematics_val_test, components_val_test, weights_val_test, train_size=val_size/(val_size+test_size), test_size=test_size/(val_size+test_size), shuffle=False)
 
       # the weights now must be scaled up so the sum of weights remains the cross-section
-      weights_train /= (train_size/total_size)
-      weights_val /= (val_size/total_size)
-      weights_test /= (test_size/total_size)
+      total_wsum = self.weights.sum()
+      weights_train *= total_wsum / weights_train.sum()
+      weights_val *= total_wsum / weights_val.sum()
+      weights_test *= total_wsum / weights_test.sum()
 
       return Process(
         kinematics_train.reset_index(drop=True), components_train.reset_index(drop=True), weights_train.reset_index(drop=True)
@@ -190,8 +150,9 @@ class Process():
       kinematics_train, kinematics_val, components_train, components_val, weights_train, weights_val = train_test_split(self.kinematics, self.components, self.weights, test_size=val_size, train_size=train_size, shuffle=False)
       
       # the weights now must be scaled up so the sum of weights remains the cross-section
-      weights_train /= train_size
-      weights_val /= val_size
+      total_wsum = self.weights.sum()
+      weights_train *= total_wsum / weights_train.sum()
+      weights_val *= total_wsum / weights_val.sum()
       
       return Process(
         kinematics_train.reset_index(drop=True), components_train.reset_index(drop=True), weights_train.reset_index(drop=True)
@@ -222,7 +183,7 @@ class Process():
     )
 
   def reweight(self, denominator, numerator):
-    reweights = self.weights * self.components[mcfm_component_sm[numerator]] / self.components[mcfm_component_sm[denominator]]
+    reweights = self.weights * self.components[csv_component_sm[numerator]] / self.components[csv_component_sm[denominator]]
     return Process(
       self.kinematics.reset_index(drop=True), 
       self.components.reset_index(drop=True), 

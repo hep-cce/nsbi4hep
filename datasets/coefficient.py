@@ -11,13 +11,6 @@ import lightning as L
 from torch.utils.data import DataLoader, Dataset
 import torch
 
-components = {
-    'sbi': msq.Component.SBI,
-    'sig': msq.Component.SIG,
-    'int': msq.Component.INT,
-    'bkg': msq.Component.BKG
-}
-
 class CoefficientDataModule(L.LightningDataModule):
 
     def __init__(self, events: str = '', analysis : str = None, features : list = None, coefficient : int = None, component : str = 'sbi', sample_size : int = None, batch_size: int = None, random_state: int=None) -> None:
@@ -26,7 +19,7 @@ class CoefficientDataModule(L.LightningDataModule):
         self.file_path = events
         self.analysis = analysis
         self.features = features
-        self.component = components[component]
+        self.component = component
         self.sample_size = sample_size
         self.batch_size = batch_size
         self.random_state = random_state
@@ -34,9 +27,9 @@ class CoefficientDataModule(L.LightningDataModule):
     
     def prepare_data(self):
         events = mcfm.from_csv(file_path=self.file_path)
-        if self.analysis == 'h4l':
+        if self.analysis == '4l':
             events = zz4l.analyze(events)
-        elif self.analysis == 'h2l2v':
+        elif self.analysis == '2l2v':
             events = zz2l2v.analyze(events)
 
         train_size, val_size, test_size = 1.0, 0.5, 0.5
@@ -55,7 +48,7 @@ class CoefficientDataModule(L.LightningDataModule):
             pickle.dump(scaler_X, f)
 
         scaler_y = StandardScaler(with_mean=False)
-        c6_mod = c6.Modifier(baseline=self.component, events=events_train, c6_values=([-10, -5, 0, 5, 10] if self.component!=msq.Component.INT else [-5,0,5]))
+        c6_mod = c6.Modifier(baseline=self.component, events=events_train, c6_values=([-20, -10, 0, 10, 20] if self.component!=msq.Component.INT else [-10, 0, 10]))
         scaler_y.fit(c6_mod.coefficients[:,self.coefficient_index].reshape(-1, 1))
         with open('scaler_y.pkl', 'wb') as f:
             pickle.dump(scaler_y, f)
@@ -71,13 +64,13 @@ class CoefficientDataModule(L.LightningDataModule):
                 events_train = pickle.load(f)
             with open('events_val.pkl', 'rb') as f: 
                 events_val = pickle.load(f)
-            self.training_data = CoefficientDataset(events_train, features=self.features, coefficient_index=self.coefficient_index, component=self.component, scaler_X=scaler_X, scaler_y=scaler_y)
-            self.validation_data = CoefficientDataset(events_val, features=self.features, coefficient_index=self.coefficient_index, component=self.component, scaler_X=scaler_X, scaler_y=scaler_y)
+            self.training_data = CoefficientDataset(events_train, features=self.features, component=self.component, coefficient_index=self.coefficient_index, scaler_X=scaler_X, scaler_y=scaler_y)
+            self.validation_data = CoefficientDataset(events_val, features=self.features, component=self.component, coefficient_index=self.coefficient_index, scaler_X=scaler_X, scaler_y=scaler_y)
 
         elif stage=='test':
             with open('events_test.pkl', 'rb') as f:
                 events_test = pickle.load(f)
-            self.testing_data = CoefficientDataset(events_test, features=self.features, coefficient_index=self.coefficient_index, component=self.component, scaler_X=scaler_X)
+            self.testing_data = CoefficientDataset(events_test, features=self.features, component=self.component, coefficient_index=self.coefficient_index, scaler_X=scaler_X)
             
     def train_dataloader(self):
         return DataLoader(self.training_data, batch_size=self.batch_size, num_workers=8)
@@ -93,7 +86,7 @@ class CoefficientDataset(Dataset):
     def __init__(self, events, features, coefficient_index, component = msq.Component.SBI, scaler_X = None, scaler_y = None):
         super().__init__()
 
-        c6_mod = c6.Modifier(baseline=component, events=events, c6_values=([-10, -5, 0, 5, 10] if component!=msq.Component.INT else [-5,0,5]))
+        c6_mod = c6.Modifier(baseline=component, events=events, c6_values=([-20, -10, 0, 10, 20] if component!=msq.Component.INT else [-10, 0, 10]))
         
         self.X = events.kinematics[features].to_numpy()
         self.y = c6_mod.coefficients[:,coefficient_index]
