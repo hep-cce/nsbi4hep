@@ -20,10 +20,10 @@
     --data.numerator_events /ptmp/mpp/taepa/higgs-offshell-interpretation/data/zz2l2v/qqZZ/events.csv \
     --data.denominator_events /ptmp/mpp/taepa/higgs-offshell-interpretation/data/zz2l2v/ggZZ_sbi/events.csv \
     --data.sample_size 2000000 \
-    --data.batch_size 1024 \
+    --data.batch_size 4096 \
     --model.learning_rate 1e-5 \
-    --model.n_layers 20 \
-    --model.n_nodes 1000 \
+    --model.n_layers 10 \
+    --model.n_nodes 100 \
     --trainer.devices 1 \
     --trainer.max_epochs 300 \
     --seed_everything 42
