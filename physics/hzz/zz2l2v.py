@@ -79,12 +79,22 @@ class MaxDRllCut():
         indices, = np.where(dr < self.dr_max)
         return indices
 
+class LeptonPtEtaCut():
+    def __init__(self, index, *, pt_min = 20, eta_max = 2.5):
+        self.min = min
+        self.max = max
+
+    def __call__(self, kinematics, components = None, weights = None, probabilities = None) -> np.array:
+        Z_mass = kinematics['ll_mass']
+        indices, = np.where((Z_mass>=self.min)&(Z_mass<=max))
+        return indices
+
 def analyze(events):
 
     events_analyzed = events.calculate(ZZ2L2V())
     print('Inclusive | ', events_analyzed.weights.sum())
 
-    met_max = 100
+    met_max = 60
     events_analyzed = events_analyzed.filter(MinMETCut(met_max))
     print(f'MET > {met_max} GeV | ', events_analyzed.weights.sum())
 

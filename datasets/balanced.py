@@ -43,12 +43,12 @@ class BalancedDataModule(L.LightningDataModule):
             events_numerator = zz2l2v.analyze(events_numerator)
             events_denominator = zz2l2v.analyze(events_denominator)
 
-        events_numerator = events_numerator.shuffle(random_state=self.random_state)
-        events_denominator = events_denominator.shuffle(random_state=self.random_state)
+        events_numerator = events_numerator.sample(self.sample_size, random_state=self.random_state)
+        events_denominator = events_denominator.sample(self.sample_size, random_state=self.random_state)
 
-        train_size, val_size, test_size = 0.8, 0.1, 0.1
-        events_numerator_train, events_numerator_val, events_numerator_test = [events.unweight(self.sample_size, random_state=self.random_state) for events in events_numerator.split(train_size=train_size, val_size=val_size, test_size=test_size)]
-        events_denominator_train, events_denominator_val, events_denominator_test = [events.unweight(self.sample_size, random_state=self.random_state) for events in events_denominator.split(train_size=train_size, val_size=val_size, test_size=test_size)]
+        train_size, val_size, test_size = 6, 2, 2
+        events_numerator_train, events_numerator_val, events_numerator_test = events_numerator.split(train_size=train_size, val_size=val_size, test_size=test_size)
+        events_denominator_train, events_denominator_val, events_denominator_test = events_denominator.split(train_size=train_size, val_size=val_size, test_size=test_size)
 
         self.training_data = BalancedDataset(events_numerator_train, events_denominator_train, self.features, scaler = None, random_state = self.random_state)
         self.scaler.fit(self.training_data.X)
@@ -107,20 +107,29 @@ class BalancedDataModule(L.LightningDataModule):
 class BalancedDataset(Dataset):
     def __init__(self, events_numerator = None, events_denominator = None, features = None, scaler = None, random_state = None):
         super().__init__()
-        # Get only required features
+
+        # get features
         X_numerator = events_numerator.kinematics[features].to_numpy()
         X_denominator = events_denominator.kinematics[features].to_numpy()
-
         self.X = np.concatenate([X_numerator, X_denominator])
+
+        # numerator = signal = 1, denominator = background = 0
         self.s = np.concatenate([np.ones(len(X_numerator)), np.zeros(len(X_denominator))])
+
+        # balanced weights
+        w_numerator = events_numerator.weights.to_numpy()
+        w_denominator = events_denominator.weights.to_numpy()
+        w_numerator /= w_numerator.sum()
+        w_denominator /= w_denominator.sum()
+        self.w = np.concatenate([w_numerator, w_denominator])
 
         if scaler is not None:
             self.X = scaler.transform(self.X)
         
-        self.X, self.s, self.indices = shuffle(self.X, self.s, np.arange(len(self.s)), random_state=random_state)
+        self.X, self.s, self.w = shuffle(self.X, self.s, self.w, random_state=random_state)
     
     def __len__(self):
         return len(self.s)
 
     def __getitem__(self, index):
-        return torch.tensor(self.X[index], dtype=torch.float32), torch.tensor(self.s[index], dtype=torch.float32)
+        return torch.tensor(self.X[index], dtype=torch.float32), torch.tensor(self.s[index], dtype=torch.float32), torch.tensor(self.w[index], dtype=torch.float32)

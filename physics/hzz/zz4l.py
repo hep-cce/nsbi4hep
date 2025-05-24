@@ -296,7 +296,7 @@ class M4lFilter():
 def analyze(events):
     # angular_vars = AngularVariables()
     z_cand = ZPairCandidate(algorithm='leastsquare')
-    z_masses = ZPairMassWindow(z1=(70,115), z2=(70,115))
+    z_masses = ZPairMassWindow(z1=(70,110), z2=(70,110))
     lepton_momenta = LeptonMomenta()
     fourlep = FourLeptonSystem()
     return events.calculate(z_cand).filter(z_masses).calculate(lepton_momenta).calculate(fourlep)

@@ -18,11 +18,11 @@ csv_kinematics = [
 
 csv_weight = 'wt'
 
-c6_values = [-20, -10, 0, 10, 20]
+c6_points = [-20, -10, 0, 10, 20]
 ct_values = [-1, 0, 1]
 cg_values = [-1, 0, 1]
-bsm_points = list(product(c6_values, ct_values, cg_values))
-n_bsm_points = len(c6_values) * len(ct_values) * len(cg_values)
+bsm_points = list(product(c6_points, ct_values, cg_values))
+n_bsm_points = len(c6_points) * len(ct_values) * len(cg_values)
 
 csv_components = [
   f"msq_{comp}_sm" for comp in ["sig", "int", "sbi", "bkg"]
@@ -38,14 +38,14 @@ csv_component_sm = {
 
 csv_component_c6 = {comp: {} for comp in Component}
 csv_component_bsm = {comp: {} for comp in Component}
-for idx, (c6, ct, cg) in enumerate(bsm_points, start=1):
+for idx, (cH, ct, cg) in enumerate(bsm_points, start=1):
   for comp in [Component.SBI, Component.INT, Component.SIG]:
-    csv_component_bsm[comp][(c6, ct, cg)] = f"msq_{comp}_bsm_{idx}"
+    csv_component_bsm[comp][(cH, ct, cg)] = f"msq_{comp}_bsm_{idx}"
     if ct == 0.0 and cg == 0.0:
-      csv_component_c6[comp][c6] = f"msq_{comp}_bsm_{idx}"
-  csv_component_bsm[Component.BKG][(c6, ct, cg)] = "msq_bkg_sm"
+      csv_component_c6[comp][cH] = f"msq_{comp}_bsm_{idx}"
+  csv_component_bsm[Component.BKG][(cH, ct, cg)] = "msq_bkg_sm"
   if ct == 0.0 and cg == 0.0:
-    csv_component_c6[Component.BKG][c6] = "msq_bkg_sm"
+    csv_component_c6[Component.BKG][cH] = "msq_bkg_sm"
 
 def from_csv(file_path : str, *, cross_section : float =1.0, n_rows : int =None):
   """
@@ -64,26 +64,46 @@ def from_csv(file_path : str, *, cross_section : float =1.0, n_rows : int =None)
   n_rows : int or None, optional
       Number of rows to read from the CSV file. If None, all rows are read.
   """
-  df = pd.read_csv(file_path, nrows=n_rows, float_precision='round_trip')
+
+  import glob
+  file_paths = glob.glob(file_path)
+  dfs = [pd.read_csv(fp, nrows=n_rows) for fp in file_paths]
+  df = pd.concat(dfs, ignore_index=True)
+
   kinematics = df[csv_kinematics]
   components = df[csv_components]
   weights = df[csv_weight]
 
-  # # TEMPORARY CHECK
-  # weights[weights > 0.001] = 0.0
-
   weights *= cross_section / weights.sum() 
   return Process(kinematics, components, weights)
 
+def check_consistency(events):
+  g1_px, g1_py = events.kinematics['p1_px'], events.kinematics['p1_py']
+  g2_px, g2_py = events.kinematics['p2_px'], events.kinematics['p2_py']
+
+  msq_sbi_sm = events.components[csv_component_sm[Component.SBI]].to_numpy()
+  msq_sig_sm = events.components[csv_component_sm[Component.SIG]].to_numpy()
+  msq_int_sm = events.components[csv_component_sm[Component.INT]].to_numpy()
+
+  msq_sbi_bsm0 = events.components[csv_component_bsm[Component.SBI][(0.0,0.0,0.0)]].to_numpy()
+  msq_sig_bsm0 = events.components[csv_component_bsm[Component.SIG][(0.0,0.0,0.0)]].to_numpy()
+  msq_int_bsm0 = events.components[csv_component_bsm[Component.INT][(0.0,0.0,0.0)]].to_numpy()
+
+  assert np.allclose(msq_sbi_sm, msq_sbi_bsm0), "msq_sbi_sm and msq_sbi_bsm at (0,0,0) mis-match"
+  assert np.allclose(msq_sig_sm, msq_sig_bsm0), "msq_sig_sm and msq_sig_bsm at (0,0,0) mis-match"
+  assert np.allclose(msq_int_sm, msq_int_bsm0), "msq_int_sm and msq_int_bsm at (0,0,0) mis-match"
+
+  return True
+
 class Process():
 
-  def __init__(self, kinematics=None, components=None, weights=None):
+  def __init__(self, kinematics=None, components=None, weights=None, *, allow_negative_weights = False):
     self.kinematics = kinematics
     self.components = components
 
     # HACK: to avoid negative weights
     # only e.g. O(1)/O(1M) events have infinitesimally-small negative weights due to numerical precision
-    if weights.sum() > 0.0: # only for non-interference sample
+    if not allow_negative_weights:
       weights[weights < 0] = 0.0
     self.weights = weights
 
@@ -161,7 +181,12 @@ class Process():
       )
 
   def sample(self, n, random_state=None):
-    sampled_events_indices = self.weights.sample(n=n, replace=False, weights=None, random_state=random_state).index
+
+    # if sampling more events than available, simply take all shuffled events
+    if n >= len(self.weights):
+      return self.shuffle(random_state=random_state)
+
+    sampled_events_indices = self.weights.sample(n, replace=False, weights=None, random_state=random_state).index
 
     # the weights now must be scaled up so the sum of weights remains the cross-section
     sampled_weights = self.weights.loc[sampled_events_indices]

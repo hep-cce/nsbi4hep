@@ -48,7 +48,7 @@ class CoefficientDataModule(L.LightningDataModule):
             pickle.dump(scaler_X, f)
 
         scaler_y = StandardScaler(with_mean=False)
-        c6_mod = c6.Modifier(baseline=self.component, events=events_train, c6_values=([-20, -10, 0, 10, 20] if self.component!=msq.Component.INT else [-10, 0, 10]))
+        c6_mod = c6.Modifier(baseline=self.component, events=events_train, c6_points=([-20, -10, 0, 10, 20] if self.component!=msq.Component.INT else [-10, 0, 10]))
         scaler_y.fit(c6_mod.coefficients[:,self.coefficient_index].reshape(-1, 1))
         with open('scaler_y.pkl', 'wb') as f:
             pickle.dump(scaler_y, f)
@@ -86,7 +86,7 @@ class CoefficientDataset(Dataset):
     def __init__(self, events, features, coefficient_index, component = msq.Component.SBI, scaler_X = None, scaler_y = None):
         super().__init__()
 
-        c6_mod = c6.Modifier(baseline=component, events=events, c6_values=([-20, -10, 0, 10, 20] if component!=msq.Component.INT else [-10, 0, 10]))
+        c6_mod = c6.Modifier(baseline=component, events=events, c6_points=([-20, -10, 0, 10, 20] if component!=msq.Component.INT else [-10, 0, 10]))
         
         self.X = events.kinematics[features].to_numpy()
         self.y = c6_mod.coefficients[:,coefficient_index]

@@ -16,7 +16,7 @@ import torch
 
 class AliceDataModule(L.LightningDataModule):
 
-    def __init__(self, filepath: str = '', features = ['cth_star', 'cth_1', 'cth_2', 'phi_1', 'phi', 'Z1_mass', 'Z2_mass', '4l_mass', '4l_rapidity'], numerator_component = msq.Component.SIG, denominator_component = msq.Component.BKG, scaler_path = 'scaler.pkl', c6_values = None, sample_size = 10000, batch_size: int = 32, random_state: int=None) -> None:
+    def __init__(self, filepath: str = '', features = ['cth_star', 'cth_1', 'cth_2', 'phi_1', 'phi', 'Z1_mass', 'Z2_mass', '4l_mass', '4l_rapidity'], numerator_component = msq.Component.SIG, denominator_component = msq.Component.BKG, scaler_path = 'scaler.pkl', c6_points = None, sample_size = 10000, batch_size: int = 32, random_state: int=None) -> None:
         super().__init__()
 
         self.filepath = filepath
@@ -28,7 +28,7 @@ class AliceDataModule(L.LightningDataModule):
         self.random_state = random_state
         self.scaler = StandardScaler()
         self.scaler_path = scaler_path
-        self.c6_values = c6_values
+        self.c6_points = c6_points
     
     def prepare_data(self):
         events = mcfm.from_csv(cross_section=1.0, file_path=self.filepath)
@@ -38,12 +38,12 @@ class AliceDataModule(L.LightningDataModule):
         if stage=='fit':
             events_train, events_val = self.events.shuffle(random_state=self.random_state).split(train_size=0.5, val_size=0.5)
 
-            if self.c6_values is None:
+            if self.c6_points is None:
                 self.training_data = JointLikelihoodDataset(events_train, features=self.features, numerator_component=self.numerator_component, denominator_component=self.denominator_component, sample_size=self.sample_size, random_state=self.random_state)
                 self.validation_data = JointLikelihoodDataset(events_val, features=self.features, numerator_component=self.numerator_component, denominator_component=self.denominator_component, sample_size=self.sample_size, random_state=self.random_state)
             else:
-                self.training_data = JointLikelihoodParameterizedDataset(events_train, features=self.features, c6_values=self.c6_values, numerator_component=self.numerator_component, denominator_component=self.denominator_component, sample_size=self.sample_size, random_state=self.random_state)
-                self.validation_data = JointLikelihoodParameterizedDataset(events_val, features=self.features, c6_values=self.c6_values, numerator_component=self.numerator_component, denominator_component=self.denominator_component, sample_size=self.sample_size, random_state=self.random_state)
+                self.training_data = JointLikelihoodParameterizedDataset(events_train, features=self.features, c6_points=self.c6_points, numerator_component=self.numerator_component, denominator_component=self.denominator_component, sample_size=self.sample_size, random_state=self.random_state)
+                self.validation_data = JointLikelihoodParameterizedDataset(events_val, features=self.features, c6_points=self.c6_points, numerator_component=self.numerator_component, denominator_component=self.denominator_component, sample_size=self.sample_size, random_state=self.random_state)
 
             # Apply Scaler to both datasets after fitting to training data
             self.training_data.X = self.scaler.fit_transform(self.training_data.X)
@@ -80,18 +80,18 @@ class JointLikelihoodDataset(Dataset):
     
 class JointLikelihoodParameterizedDataset(Dataset):
 
-    def __init__(self, events, features, c6_values, sample_size, numerator_component = msq.Component.SIG, denominator_component = msq.Component.BKG, random_state=None):
+    def __init__(self, events, features, c6_points, sample_size, numerator_component = msq.Component.SIG, denominator_component = msq.Component.BKG, random_state=None):
         super().__init__()
-        c6_mod = c6.Modifier(baseline=numerator_component, events=events, c6_values=[-5,-1,0,1,5]) if numerator_component != msq.Component.INT else c6.Modifier(baseline=numerator_component, events=events, c6_values=[-5,0,5])
-        _, c6_probabilities = c6_mod.modify(c6_values)
+        c6_mod = c6.Modifier(baseline=numerator_component, events=events, c6_points=[-5,-1,0,1,5]) if numerator_component != msq.Component.INT else c6.Modifier(baseline=numerator_component, events=events, c6_points=[-5,0,5])
+        _, c6_probabilities = c6_mod.modify(c6_points)
 
-        X = np.tile(events.kinematics[features].to_numpy(), (len(c6_values),1))
-        c6_column = np.repeat(c6_values, len(events.kinematics), axis=0)[:,np.newaxis]
+        X = np.tile(events.kinematics[features].to_numpy(), (len(c6_points),1))
+        c6_column = np.repeat(c6_points, len(events.kinematics), axis=0)[:,np.newaxis]
 
         X = np.concatenate([X, c6_column], axis=1)
 
         probabilities_numerator = c6_probabilities.flatten()
-        probabilities_denominator = np.tile(events.probabilities.to_numpy(), len(c6_values))
+        probabilities_denominator = np.tile(events.probabilities.to_numpy(), len(c6_points))
 
         sample_weights = pd.Series((probabilities_numerator + probabilities_denominator)/2*sample_size).reset_index(drop=True)
         

@@ -20,7 +20,7 @@ class CARL(L.LightningModule):
         self.model = nn.Sequential(*layers)
 
         # binary cross-entropy loss
-        self.loss_fn = nn.BCELoss()
+        self.loss_fn = nn.BCELoss(reduction='none')
 
         # weights initialization
         def xavier_init(m):
@@ -58,23 +58,25 @@ class CARL(L.LightningModule):
         return self.model(x)
 
     def training_step(self, batch, batch_idx):
-        x, y = batch
+        x, y, w = batch
         y_hat = self.model(x).flatten()
         y = y.flatten()
-        loss = self.loss_fn(y_hat, y)
+        w = w.flatten()
+        loss = (self.loss_fn(y_hat, y) * w).sum() / w.sum()
         self.log("train_loss", loss, on_step=False, on_epoch=True, prog_bar=True, sync_dist=True)
         return loss
 
     def validation_step(self, batch, batch_idx):
-        x, y = batch
+        x, y, w = batch
         y_hat = self.model(x).flatten()
         y = y.flatten()
-        loss = self.loss_fn(y_hat, y)
+        w = w.flatten()
+        loss = (self.loss_fn(y_hat, y) * w).sum() / w.sum()
         self.log("val_loss", loss, on_step=False, on_epoch=True, prog_bar=True, sync_dist=True)
         return loss
     
     def predict_step(self, batch, batch_idx):
-        x, _ = batch
+        x, _, _ = batch
         return self.model(x).flatten()
 
     def configure_optimizers(self):
