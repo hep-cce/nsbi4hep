@@ -16,3 +16,5 @@ jobs/
 *.pdf
 *.out.*
 *.err.*
+*.out
+*.err
