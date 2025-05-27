@@ -76,7 +76,7 @@ class CARL(L.LightningModule):
         return loss
     
     def predict_step(self, batch, batch_idx):
-        x, _, _ = batch
+        x, = batch
         return self.model(x).flatten()
 
     def configure_optimizers(self):

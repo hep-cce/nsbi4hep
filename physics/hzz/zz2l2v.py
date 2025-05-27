@@ -102,7 +102,7 @@ def analyze(events):
     events_analyzed = events_analyzed.filter(MinDPhillMETCut(dphillmet_min))
     print(f'DPhillMET > {dphillmet_min} | ', events_analyzed.weights.sum())
 
-    drll_max = 1.8
+    drll_max = 2.0
     events_analyzed = events_analyzed.filter(MaxDRllCut(drll_max))
     print(f'DRll < {drll_max} | ', events_analyzed.weights.sum())
 

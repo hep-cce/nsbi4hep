@@ -74,7 +74,7 @@ class TAYLR(L.LightningModule):
         return loss
     
     def predict_step(self, batch, batch_idx):
-        x, y, w = batch
+        x, = batch
         return self.model(x).flatten()
 
     def configure_optimizers(self):

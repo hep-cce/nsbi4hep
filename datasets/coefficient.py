@@ -2,7 +2,7 @@ import os, pickle
 
 from physics.simulation import mcfm, msq
 from physics.hzz import zz4l, zz2l2v
-from physics.hstar import c6
+from physics.hstar import eft
 
 import numpy as np
 from sklearn.preprocessing import StandardScaler
@@ -13,7 +13,7 @@ import torch
 
 class CoefficientDataModule(L.LightningDataModule):
 
-    def __init__(self, events: str = '', analysis : str = None, features : list = None, coefficient : int = None, component : str = 'sbi', sample_size : int = None, batch_size: int = None, random_state: int=None) -> None:
+    def __init__(self, events: str = '', analysis : str = None, features : list = None, coefficient : list = None, component : str = 'sbi', sample_size : int = None, batch_size: int = None, random_state: int=None) -> None:
         super().__init__()
 
         self.file_path = events
@@ -32,7 +32,7 @@ class CoefficientDataModule(L.LightningDataModule):
         elif self.analysis == '2l2v':
             events = zz2l2v.analyze(events)
 
-        train_size, val_size, test_size = 1.0, 0.5, 0.5
+        train_size, val_size, test_size = 6, 2, 2
         events_train, events_val, events_test = events.sample(self.sample_size,random_state=self.random_state).split(train_size=train_size, val_size=val_size, test_size=test_size)
 
         with open('events_train.pkl', 'wb') as f:
@@ -48,8 +48,8 @@ class CoefficientDataModule(L.LightningDataModule):
             pickle.dump(scaler_X, f)
 
         scaler_y = StandardScaler(with_mean=False)
-        c6_mod = c6.Modifier(baseline=self.component, events=events_train, c6_points=([-20, -10, 0, 10, 20] if self.component!=msq.Component.INT else [-10, 0, 10]))
-        scaler_y.fit(c6_mod.coefficients[:,self.coefficient_index].reshape(-1, 1))
+        eft_mod = eft.Modifier(baseline=self.component, events=events_train)
+        scaler_y.fit(eft_mod.coefficients[(slice(None), *self.coefficient_index)].reshape(-1, 1))
         with open('scaler_y.pkl', 'wb') as f:
             pickle.dump(scaler_y, f)
 
@@ -86,10 +86,10 @@ class CoefficientDataset(Dataset):
     def __init__(self, events, features, coefficient_index, component = msq.Component.SBI, scaler_X = None, scaler_y = None):
         super().__init__()
 
-        c6_mod = c6.Modifier(baseline=component, events=events, c6_points=([-20, -10, 0, 10, 20] if component!=msq.Component.INT else [-10, 0, 10]))
+        eft_mod = eft.Modifier(baseline=component, events=events)
         
         self.X = events.kinematics[features].to_numpy()
-        self.y = c6_mod.coefficients[:,coefficient_index]
+        self.y = eft_mod.coefficients[(slice(None), *coefficient_index)]
         self.w = events.weights.to_numpy() * self.y.size / events.weights.sum()
 
         if scaler_X is not None:

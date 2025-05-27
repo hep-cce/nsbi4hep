@@ -47,6 +47,26 @@ for idx, (cH, ct, cg) in enumerate(bsm_points, start=1):
   if ct == 0.0 and cg == 0.0:
     csv_component_c6[Component.BKG][cH] = "msq_bkg_sm"
 
+def stack( *events ):
+  """
+  Form a single Process object from multiple Process objects by concatenating their kinematics, components, and weights.
+
+  Parameters
+  ----------
+  *events : Process
+      One or more Process objects to be stacked together.
+      
+  Returns
+  -------
+  Process
+      A new Process object containing the concatenated kinematics, components, and weights.
+  """
+  kinematics = pd.concat([e.kinematics for e in events], ignore_index=True)
+  components = pd.concat([e.components for e in events], ignore_index=True)
+  weights = pd.concat([e.weights for e in events], ignore_index=True)
+
+  return Process(kinematics, components, weights, allow_negative_weights=True)
+
 def from_csv(file_path : str, *, cross_section : float =1.0, n_rows : int =None):
   """
   Open an MCFM CSV file containing a physics process.
