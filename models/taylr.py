@@ -33,7 +33,7 @@ class TAYLR(L.LightningModule):
         callbacks.append(ModelCheckpoint(
             monitor="val_loss",
             mode="min",
-            save_top_k=3,
+            save_top_k=10,
             filename="{epoch:02d}-{val_loss:.2f}"
         ))
 
@@ -46,7 +46,7 @@ class TAYLR(L.LightningModule):
 
         callbacks.append(EarlyStopping(
             monitor="val_loss",
-            patience=20,
+            patience=5,
             mode="min"
         ))
 

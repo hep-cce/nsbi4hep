@@ -6,22 +6,22 @@ cH_up, cH_dn = +40, -40
 c6_vals = [c6_up, c6_dn]
 cH_vals = [cH_up, cH_dn]
 
-to_smeft = c6_up/cH_up
-from_smeft = cH_up/c6_up
+eft_terms = [
+    [1, 0, 0],
+    [2, 0, 0],
+    [3, 0, 0],
+    [4, 0, 0],
+    [0, 1, 0],
+    [0, 2, 0],
+    [0, 0, 1],
+    [0, 0, 2],
+    [1, 1, 0],
+    [1, 0, 1],
+    [2, 1, 0],
+    [2, 0, 1],
+    [0, 1, 1],
+]
 
-cHbox_up, cHbox_dn = 0.05,-0.02
-
-# c6_space = np.linspace(c6_dn, c6_up, 201)
-# cHbox_space = np.linspace(*)
-
-# c6_sm = 0.0
-# cHbox_sm = 0.0
-
-# i_c6_sm = np.where(c6_space==c6_sm)[0][0]
-# i_cHbox_sm = np.where(np.round(cHbox_space,5)==cHbox_sm)[0][0]
-
-# c6_asimov = 0.0
-# cHbox_asimov = 0.0
-
-# i_c6_asimov = np.where(c6_space==c6_asimov)[0][0]
-# i_cHbox_asimov = np.where(np.round(cHbox_space,5)==cHbox_asimov)[0][0]
+c6_degree = max([ctup[0] for ctup in eft_terms])
+ct_degree = max([ctup[1] for ctup in eft_terms])
+cg_degree = max([ctup[2] for ctup in eft_terms])

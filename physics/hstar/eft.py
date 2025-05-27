@@ -1,9 +1,38 @@
+import torch
 import numpy as np
 from numpy.polynomial import polynomial as P
 
 from enum import Enum
 
 from ..simulation import mcfm, msq
+
+def msq_eft_over_sm(eft_coefficients, c6=None, ct=None, cg=None):
+    # Move eft_coefficients to tensor on device
+    eft_coefficients = torch.tensor(eft_coefficients)
+
+    c6_degree = eft_coefficients.shape[1] - 1
+    ct_degree = eft_coefficients.shape[2] - 1
+    cg_degree = eft_coefficients.shape[3] - 1
+
+    # If coefficients are None, use 0 scalar, else convert to tensor on device
+    c6_val = torch.tensor(c6 if c6 is not None else [0.0], dtype=eft_coefficients.dtype)
+    ct_val = torch.tensor(ct if ct is not None else [0.0], dtype=eft_coefficients.dtype)
+    cg_val = torch.tensor(cg if cg is not None else [0.0], dtype=eft_coefficients.dtype)
+
+    # Compute powers, shape (degree+1, len(cX_val)) if cX_val is a list, else scalar
+    c6_powers = torch.stack([c6_val.pow(i) for i in range(c6_degree + 1)], dim=0)
+    ct_powers = torch.stack([ct_val.pow(j) for j in range(ct_degree + 1)], dim=0)
+    cg_powers = torch.stack([cg_val.pow(k) for k in range(cg_degree + 1)], dim=0)
+
+    # Einsum - same subscript notation as numpy but for torch.einsum
+    msq_eft_over_sm = torch.einsum('nijk,ix,jy,kz->nxyz', eft_coefficients, c6_powers, ct_powers, cg_powers)
+
+    # Determine slicing: if None, select only first element, else slice all
+    c6_slice = slice(None) if c6 is not None else 0
+    ct_slice = slice(None) if ct is not None else 0
+    cg_slice = slice(None) if cg is not None else 0
+
+    return msq_eft_over_sm[:, c6_slice, ct_slice, cg_slice].numpy()
 
 class Modifier():
 
@@ -45,12 +74,10 @@ class Modifier():
     # self.coefficients[:, 4, :, 1:] = 0
 
   def modify(self, c6 = None, ct = None, cg = None):
-    c6_powers = np.stack([np.power(c6,i) for i in range(self.c6_degree+1)], axis=0)   # (5, Nx)
-    ct_powers = np.stack([np.power(ct,j) for j in range(self.ct_degree+1)], axis=0)   # (3, Ny)
-    cg_powers = np.stack([np.power(cg,k) for k in range(self.cg_degree+1)], axis=0)   # (3, Nz)
-    msq_bsm_over_sm = np.einsum('nijk,ix,jy,kz->nxyz', self.coefficients, c6_powers, ct_powers, cg_powers)
+    
+    # Create a tuple with `count_not_none` times np.newaxis
+    newaxes = (np.newaxis,) * sum(x is not None for x in (c6, ct, cg))
+    w_eft = msq_eft_over_sm(self.coefficients, c6, ct, cg) * self.events.weights.to_numpy()[(slice(None), )+newaxes]
+    p_eft = w_eft / np.sum(w_eft, axis=0, keepdims=True)
 
-    w_bsm = msq_bsm_over_sm * self.events.weights.to_numpy()[:, np.newaxis, np.newaxis, np.newaxis]
-    p_bsm = w_bsm / np.sum(w_bsm, axis=0, keepdims=True)
-
-    return w_bsm, p_bsm
+    return w_eft, p_eft

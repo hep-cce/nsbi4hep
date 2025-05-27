@@ -15,12 +15,12 @@ for i in {1..4}; do
       --data.coefficient "$coeff" \
       --data.sample_size 6_000_000 \
       --data.batch_size 1024 \
-      --model.learning_rate 1e-3 \
-      --model.n_layers 10 \
-      --model.n_nodes 100 \
+      --model.learning_rate 1e-4 \
+      --model.n_layers 20 \
+      --model.n_nodes 10 \
       --trainer.accelerator auto \
       --trainer.devices 6 \
-      --trainer.max_epochs 300 \
+      --trainer.max_epochs 200 \
       --seed_everything 42
    cd ..
 done
@@ -40,12 +40,12 @@ for j in {1..2}; do
       --data.coefficient "$coeff" \
       --data.sample_size 6_000_000 \
       --data.batch_size 1024 \
-      --model.learning_rate 1e-3 \
-      --model.n_layers 10 \
-      --model.n_nodes 100 \
+      --model.learning_rate 1e-4 \
+      --model.n_layers 20 \
+      --model.n_nodes 10 \
       --trainer.accelerator auto \
       --trainer.devices 6 \
-      --trainer.max_epochs 300 \
+      --trainer.max_epochs 200 \
       --seed_everything 42
    cd ..
 done
@@ -65,12 +65,12 @@ for k in {1..2}; do
       --data.coefficient "$coeff" \
       --data.sample_size 6_000_000 \
       --data.batch_size 1024 \
-      --model.learning_rate 1e-3 \
-      --model.n_layers 10 \
-      --model.n_nodes 100 \
+      --model.learning_rate 1e-4 \
+      --model.n_layers 20 \
+      --model.n_nodes 10 \
       --trainer.accelerator auto \
       --trainer.devices 6 \
-      --trainer.max_epochs 300 \
+      --trainer.max_epochs 200 \
       --seed_everything 42
    cd ..
 done
@@ -90,12 +90,12 @@ for i in {1..2}; do
       --data.coefficient "$coeff" \
       --data.sample_size 6_000_000 \
       --data.batch_size 1024 \
-      --model.learning_rate 1e-3 \
-      --model.n_layers 10 \
-      --model.n_nodes 100 \
+      --model.learning_rate 1e-4 \
+      --model.n_layers 20 \
+      --model.n_nodes 10 \
       --trainer.accelerator auto \
       --trainer.devices 6 \
-      --trainer.max_epochs 300 \
+      --trainer.max_epochs 200 \
       --seed_everything 42
    cd ..
 done
@@ -115,12 +115,12 @@ for i in {1..2}; do
       --data.coefficient "$coeff" \
       --data.sample_size 6_000_000 \
       --data.batch_size 1024 \
-      --model.learning_rate 1e-3 \
-      --model.n_layers 10 \
-      --model.n_nodes 100 \
+      --model.learning_rate 1e-4 \
+      --model.n_layers 20 \
+      --model.n_nodes 10 \
       --trainer.accelerator auto \
       --trainer.devices 6 \
-      --trainer.max_epochs 300 \
+      --trainer.max_epochs 200 \
       --seed_everything 42
    cd ..
 done
@@ -140,11 +140,11 @@ python -m nsbi.taylr fit \
    --data.coefficient "$coeff" \
    --data.sample_size 6_000_000 \
    --data.batch_size 1024 \
-   --model.learning_rate 1e-3 \
-   --model.n_layers 10 \
-   --model.n_nodes 100 \
+   --model.learning_rate 1e-4 \
+   --model.n_layers 20 \
+   --model.n_nodes 10 \
    --trainer.accelerator auto \
    --trainer.devices 6 \
-   --trainer.max_epochs 300 \
+   --trainer.max_epochs 200 \
    --seed_everything 42
 cd ..
