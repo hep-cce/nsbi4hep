@@ -3,18 +3,24 @@ import vector
 
 import pandas as pd
 
+from ..constants import mZ
+from .zz4l import LeptonPtEtaCut
+
 class ZZ2L2V():
-    def __init__(self):
+    def __init__(self, lepton_indices = [3,4], neutrino_indices = [5,6]):
         """
         """
+
+        self.lepton_indices = lepton_indices
+        self.neutrino_indices = neutrino_indices
 
     def __call__(self, kinematics):
         from ..constants import mZ
 
-        l1 = vector.array({'px': kinematics['p3_px'], 'py': kinematics['p3_py'], 'pz': kinematics['p3_pz'], 'E': kinematics['p3_E']})
-        l2 = vector.array({'px': kinematics['p4_px'], 'py': kinematics['p4_py'], 'pz': kinematics['p4_pz'], 'E': kinematics['p4_E']})
-        v1 = vector.array({'px': kinematics['p5_px'], 'py': kinematics['p5_py'], 'pz': kinematics['p5_pz'], 'E': kinematics['p5_E']})
-        v2 = vector.array({'px': kinematics['p6_px'], 'py': kinematics['p6_py'], 'pz': kinematics['p6_pz'], 'E': kinematics['p6_E']})
+        l1 = vector.array({'px': kinematics[f'p{self.lepton_indices[0]}_px'], 'py': kinematics[f'p{self.lepton_indices[0]}_py'], 'pz': kinematics[f'p{self.lepton_indices[0]}_pz'], 'E': kinematics[f'p{self.lepton_indices[0]}_E']})
+        l2 = vector.array({'px': kinematics[f'p{self.lepton_indices[1]}_px'], 'py': kinematics[f'p{self.lepton_indices[1]}_py'], 'pz': kinematics[f'p{self.lepton_indices[1]}_pz'], 'E': kinematics[f'p{self.lepton_indices[1]}_E']})
+        v1 = vector.array({'px': kinematics[f'p{self.neutrino_indices[0]}_px'], 'py': kinematics[f'p{self.neutrino_indices[0]}_py'], 'pz': kinematics[f'p{self.neutrino_indices[0]}_pz'], 'E': kinematics[f'p{self.neutrino_indices[0]}_E']})
+        v2 = vector.array({'px': kinematics[f'p{self.neutrino_indices[1]}_px'], 'py': kinematics[f'p{self.neutrino_indices[1]}_py'], 'pz': kinematics[f'p{self.neutrino_indices[1]}_pz'], 'E': kinematics[f'p{self.neutrino_indices[1]}_E']})
 
         pt = np.array([l1.pt, l2.pt]).T
         indices = np.argsort(pt, axis=1)[:,::-1]
@@ -42,14 +48,24 @@ class ZZ2L2V():
 
         return results
 
+
+class MTZZMinCut():
+    def __init__(self, mtzz_min = 270):
+        self.mtzz_min = mtzz_min
+
+    def __call__(self, kinematics, components = None, weights = None, probabilities = None) -> np.array:
+        mtzz = kinematics['zz_mt']
+        indices, = np.where((mtzz>=self.mtzz_min))
+        return indices
+
 class ZMassWindow():
-    def __init__(self, min = 75, max = 105):
-        self.min = min
-        self.max = max
+    def __init__(self, mz_min = 75, mz_max = 105):
+        self.mz_min = mz_min
+        self.mz_max = mz_max
 
     def __call__(self, kinematics, components = None, weights = None, probabilities = None) -> np.array:
         Z_mass = kinematics['ll_mass']
-        indices, = np.where((Z_mass>=self.min)&(Z_mass<=max))
+        indices, = np.where((Z_mass>=self.mz_min)&(Z_mass<=self.mz_max))
         return indices
 
 class MinMETCut():
@@ -79,31 +95,30 @@ class MaxDRllCut():
         indices, = np.where(dr < self.dr_max)
         return indices
 
-class LeptonPtEtaCut():
-    def __init__(self, index, *, pt_min = 20, eta_max = 2.5):
-        self.min = min
-        self.max = max
-
-    def __call__(self, kinematics, components = None, weights = None, probabilities = None) -> np.array:
-        Z_mass = kinematics['ll_mass']
-        indices, = np.where((Z_mass>=self.min)&(Z_mass<=max))
-        return indices
-
 def analyze(events):
 
-    events_analyzed = events.calculate(ZZ2L2V())
-    print('Inclusive | ', events_analyzed.weights.sum())
+    events_analyzed = events.calculate(ZZ2L2V(lepton_indices=[3,4],neutrino_indices=[5,6]))
+    print('Inclusive |', events_analyzed.weights.sum())
+
+    events_analyzed = events_analyzed.filter(LeptonPtEtaCut(1,pt_min=30,eta_max=2.5)).filter(LeptonPtEtaCut(2,pt_min=20,eta_max=2.5))
+    print(f'lepton (pT, eta) cuts |', events_analyzed.weights.sum())
 
     met_max = 60
     events_analyzed = events_analyzed.filter(MinMETCut(met_max))
-    print(f'MET > {met_max} GeV | ', events_analyzed.weights.sum())
+    print(f'MET cut |', events_analyzed.weights.sum())
+
+    events_analyzed = events_analyzed.filter(MTZZMinCut(250))
+    print(f'mTZZ cut |', events_analyzed.weights.sum())
+
+    events_analyzed = events_analyzed.filter(ZMassWindow(80,100))
+    print(f'mZ window cut |', events_analyzed.weights.sum())
 
     dphillmet_min = 2.5
     events_analyzed = events_analyzed.filter(MinDPhillMETCut(dphillmet_min))
-    print(f'DPhillMET > {dphillmet_min} | ', events_analyzed.weights.sum())
+    print(f'DPhillMET cut |', events_analyzed.weights.sum())
 
     drll_max = 2.0
     events_analyzed = events_analyzed.filter(MaxDRllCut(drll_max))
-    print(f'DRll < {drll_max} | ', events_analyzed.weights.sum())
+    print(f'DRll cut |', events_analyzed.weights.sum())
 
     return events_analyzed
