@@ -1,7 +1,7 @@
 import os, pickle
 
 from physics.simulation import mcfm, msq
-from physics.hzz import zz4l
+from physics.analysis import zz4l
 from physics.hstar import c6
 
 from sklearn.preprocessing import StandardScaler

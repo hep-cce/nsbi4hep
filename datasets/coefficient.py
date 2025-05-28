@@ -1,7 +1,6 @@
 import os, pickle
 
 from physics.simulation import mcfm, msq
-from physics.hzz import zz4l, zz2l2v
 from physics.hstar import eft
 
 import numpy as np
@@ -13,11 +12,10 @@ import torch
 
 class CoefficientDataModule(L.LightningDataModule):
 
-    def __init__(self, events: str = '', analysis : str = None, features : list = None, coefficient : list = None, component : str = 'sbi', sample_size : int = None, batch_size: int = None, random_state: int=None) -> None:
+    def __init__(self, events: str = '', features : list = None, coefficient : list = None, component : str = 'sbi', sample_size : int = None, batch_size: int = None, random_state: int=None) -> None:
         super().__init__()
 
         self.file_path = events
-        self.analysis = analysis
         self.features = features
         self.component = component
         self.sample_size = sample_size
@@ -26,11 +24,7 @@ class CoefficientDataModule(L.LightningDataModule):
         self.coefficient_index = coefficient
     
     def prepare_data(self):
-        events = mcfm.from_csv(file_path=self.file_path)
-        if self.analysis == '4l':
-            events = zz4l.analyze(events)
-        elif self.analysis == '2l2v':
-            events = zz2l2v.analyze(events)
+        events = mcfm.from_csv(cross_section=None, file_path=self.file_path)
 
         train_size, val_size, test_size = 6, 2, 2
         events_train, events_val, events_test = events.sample(self.sample_size,random_state=self.random_state).split(train_size=train_size, val_size=val_size, test_size=test_size)

@@ -67,7 +67,7 @@ def stack( *events ):
 
   return Process(kinematics, components, weights, allow_negative_weights=True)
 
-def from_csv(file_path : str, *, cross_section : float =1.0, n_rows : int =None):
+def from_csv(file_path : str, *, cross_section : float = None, n_rows : int =None):
   """
   Open an MCFM CSV file containing a physics process.
 
@@ -78,8 +78,7 @@ def from_csv(file_path : str, *, cross_section : float =1.0, n_rows : int =None)
 
   cross_section : float, optional
       The cross-section of the process in femtobarns (fb). Event weights will be normalized
-      so that their sum equals this value. Defaults to 1.0, meaning the weights are treated
-      as a probability density rather than a differential cross-section.
+      so that their sum equals this value. If None, no normalization will be performed.
 
   n_rows : int or None, optional
       Number of rows to read from the CSV file. If None, all rows are read.
@@ -94,7 +93,9 @@ def from_csv(file_path : str, *, cross_section : float =1.0, n_rows : int =None)
   components = df[csv_components]
   weights = df[csv_weight]
 
-  weights *= cross_section / weights.sum() 
+  if cross_section is not None:
+    weights *= cross_section / weights.sum() 
+
   return Process(kinematics, components, weights)
 
 def check_consistency(events):

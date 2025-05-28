@@ -10,14 +10,13 @@ from torch.utils.data import DataLoader, Dataset
 import lightning as L
 
 from physics.simulation import mcfm, msq
-from physics.hzz import zz4l, zz2l2v
+from physics.analysis import zz4l, zz2l2v
 
 class BalancedDataModule(L.LightningDataModule):
 
     def __init__(self, numerator_events: str = '', denominator_events: str = '', analysis = 'h4l', features = ['cth_star', 'cth_1', 'cth_2', 'phi_1', 'phi', 'Z1_mass', 'Z2_mass', '4l_mass', '4l_rapidity'], sample_size = 10000, batch_size: int = 32, random_state: int=None, data_dir : str = './'):
         super().__init__()
 
-        self.analysis = analysis
         self.features = features
 
         self.numerator_file = numerator_events
@@ -33,15 +32,8 @@ class BalancedDataModule(L.LightningDataModule):
 
     def prepare_data(self):
 
-        events_numerator = mcfm.from_csv(file_path=self.numerator_file)
-        events_denominator = mcfm.from_csv(file_path=self.denominator_file)
-
-        if self.analysis == '4l':
-            events_numerator = zz4l.analyze(events_numerator)
-            events_denominator = zz4l.analyze(events_denominator)
-        elif self.analysis == '2l2v':
-            events_numerator = zz2l2v.analyze(events_numerator)
-            events_denominator = zz2l2v.analyze(events_denominator)
+        events_numerator = mcfm.from_csv(cross_section=None, file_path=self.numerator_file)
+        events_denominator = mcfm.from_csv(cross_section=None, file_path=self.denominator_file)
 
         events_numerator = events_numerator.sample(self.sample_size, random_state=self.random_state)
         events_denominator = events_denominator.sample(self.sample_size, random_state=self.random_state)

@@ -52,27 +52,27 @@ class WWLVLV():
 def analyze(events):
 
     events_analyzed = events.calculate(WWLVLV(lepton_indices=[4,5],neutrino_indices=[3,6]))
-    print('Inclusive |', events_analyzed.weights.sum())
+    print('Inclusive             |', events_analyzed.weights.sum())
 
     events_analyzed = events_analyzed.filter(LeptonPtEtaCut(1,pt_min=30,eta_max=2.5)).filter(LeptonPtEtaCut(2,pt_min=20,eta_max=2.5))
-    print(f'lepton (pT, eta) cuts |', events_analyzed.weights.sum())
+    print(f'lepton (pT,eta) cuts |', events_analyzed.weights.sum())
 
     met_max = 60
     events_analyzed = events_analyzed.filter(MinMETCut(met_max))
-    print(f'MET cut |', events_analyzed.weights.sum())
+    print(f'MET cut              |', events_analyzed.weights.sum())
 
     events_analyzed = events_analyzed.filter(MTZZMinCut(250))
-    print(f'mTZZ cut |', events_analyzed.weights.sum())
+    print(f'mTZZ cut             |', events_analyzed.weights.sum())
 
     events_analyzed = events_analyzed.filter(ZMassWindow(80,100))
-    print(f'mZ window cut |', events_analyzed.weights.sum())
+    print(f'mZ window            |', events_analyzed.weights.sum())
 
     dphillmet_min = 2.5
     events_analyzed = events_analyzed.filter(MinDPhillMETCut(dphillmet_min))
-    print(f'DPhillMET cut |', events_analyzed.weights.sum())
+    print(f'DPhillMET cut        |', events_analyzed.weights.sum())
 
     drll_max = 2.0
     events_analyzed = events_analyzed.filter(MaxDRllCut(drll_max))
-    print(f'DRll cut |', events_analyzed.weights.sum())
+    print(f'DRll cut             |', events_analyzed.weights.sum())
 
     return events_analyzed

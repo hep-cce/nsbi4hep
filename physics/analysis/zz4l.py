@@ -317,8 +317,8 @@ def analyze(events):
     print('Inclusive |', events_analyzed.weights.sum())
 
     z_masses = ZPairMassWindow(z1=(70,110), z2=(70,110))
-    # events_analyzed = events_analyzed.filter(z_masses).filter(LeptonPtEtaCut(1,pt_min=20,eta_max=2.5)).filter(LeptonPtEtaCut(2,pt_min=15,eta_max=2.5)).filter(LeptonPtEtaCut(3,pt_min=10,eta_max=2.5)).filter(LeptonPtEtaCut(4,pt_min=7,eta_max=2.5))
+    events_analyzed = events_analyzed.filter(z_masses).filter(LeptonPtEtaCut(1,pt_min=20,eta_max=2.5)).filter(LeptonPtEtaCut(2,pt_min=15,eta_max=2.5)).filter(LeptonPtEtaCut(3,pt_min=10,eta_max=2.5)).filter(LeptonPtEtaCut(4,pt_min=7,eta_max=2.5))
 
-    print('After cuts |', events_analyzed.weights.sum())
+    print('Analyzed  |', events_analyzed.weights.sum())
 
     return events_analyzed
