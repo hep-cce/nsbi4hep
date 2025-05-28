@@ -24,7 +24,7 @@ class CoefficientDataModule(L.LightningDataModule):
         self.coefficient_index = coefficient
     
     def prepare_data(self):
-        events = mcfm.from_csv(cross_section=None, file_path=self.file_path)
+        events = mcfm.from_csv(cross_section=None, file_path=self.file_path, kinematics=self.features)
 
         train_size, val_size, test_size = 6, 2, 2
         events_train, events_val, events_test = events.sample(self.sample_size,random_state=self.random_state).split(train_size=train_size, val_size=val_size, test_size=test_size)

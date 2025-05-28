@@ -32,8 +32,8 @@ class BalancedDataModule(L.LightningDataModule):
 
     def prepare_data(self):
 
-        events_numerator = mcfm.from_csv(cross_section=None, file_path=self.numerator_file)
-        events_denominator = mcfm.from_csv(cross_section=None, file_path=self.denominator_file)
+        events_numerator = mcfm.from_csv(cross_section=None, file_path=self.numerator_file, kinematics=self.features)
+        events_denominator = mcfm.from_csv(cross_section=None, file_path=self.denominator_file, kinematics=self.features)
 
         events_numerator = events_numerator.sample(self.sample_size, random_state=self.random_state)
         events_denominator = events_denominator.sample(self.sample_size, random_state=self.random_state)

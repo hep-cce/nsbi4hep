@@ -6,7 +6,7 @@ def parse_arguments():
     parser = ArgumentParser(description='Python script for training (deep) neural networks in a SM vs BSM classification scenario.')
     parser.add_argument('-i', '--input', type=str, help='Source .csv file to be shuffled')
     parser.add_argument('-o', '--output', type=str, help='Destination .csv file to save the new versio to')
-    parser.add_argument('-s', '--seed', type=int, default=None, help='Seed for shuffling the dataset')
+    parser.add_argument('-s', '--seed', type=int, default=42, help='Seed for shuffling the dataset')
 
     args = parser.parse_args()
 

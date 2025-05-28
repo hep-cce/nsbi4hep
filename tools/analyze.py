@@ -5,20 +5,7 @@ import numpy as np
 import pandas as pd
 
 from physics.simulation import mcfm
-
 from physics.analysis import zz4l, zz2l2v, wwlvlv
-
-def main(analysis, xsec_json, events_csv, analyzed_csv):
-
-    # Load cross sections
-    with open(xsec_json, 'r') as f:
-        xsec = json.load(f)
-
-    # Load and stack events
-    events = mcfm.from_csv(
-        cross_section = np.prod(xsec[process_name]),
-        file_path=events_csv
-    )
 
 if __name__ == "__main__":
 
@@ -35,6 +22,8 @@ if __name__ == "__main__":
     with open(args.samples, 'r') as f:
         samples = json.load(f)
 
+    print('----------'*8)
+
     for analysis, processes in samples.items():
 
         if analysis == 'zz4l':
@@ -46,8 +35,6 @@ if __name__ == "__main__":
 
         with open(os.path.join(args.data_dir, analysis, args.xsec_json), 'r') as f:
             xsec = json.load(f)
-
-        print('----------'*8)
 
         for process in processes:
 
@@ -73,6 +60,3 @@ if __name__ == "__main__":
             df_analyzed.to_csv(os.path.join(output_dir, args.analyzed_csv), index=False)
 
             print('----------'*8)
-
-
-    main(args)

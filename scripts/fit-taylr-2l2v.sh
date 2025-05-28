@@ -17,7 +17,7 @@ for i in {1..4}; do
       --model.learning_rate 1e-3 \
       --model.n_layers 10 \
       --model.n_nodes 100 \
-      --trainer.accelerator auto \
+      --trainer.accelerator gpu \
       --trainer.devices 4 \
       --trainer.max_epochs 500 \
       --seed_everything 42
@@ -41,7 +41,7 @@ for j in {1..2}; do
       --model.learning_rate 1e-3 \
       --model.n_layers 10 \
       --model.n_nodes 100 \
-      --trainer.accelerator auto \
+      --trainer.accelerator gpu \
       --trainer.devices 4 \
       --trainer.max_epochs 500 \
       --seed_everything 42
@@ -65,7 +65,7 @@ for k in {1..2}; do
       --model.learning_rate 1e-3 \
       --model.n_layers 10 \
       --model.n_nodes 100 \
-      --trainer.accelerator auto \
+      --trainer.accelerator gpu \
       --trainer.devices 4 \
       --trainer.max_epochs 500 \
       --seed_everything 42
@@ -89,7 +89,7 @@ for i in {1..2}; do
       --model.learning_rate 1e-3 \
       --model.n_layers 10 \
       --model.n_nodes 100 \
-      --trainer.accelerator auto \
+      --trainer.accelerator gpu \
       --trainer.devices 4 \
       --trainer.max_epochs 500 \
       --seed_everything 42
@@ -113,7 +113,7 @@ for i in {1..2}; do
       --model.learning_rate 1e-3 \
       --model.n_layers 10 \
       --model.n_nodes 100 \
-      --trainer.accelerator auto \
+      --trainer.accelerator gpu \
       --trainer.devices 4 \
       --trainer.max_epochs 500 \
       --seed_everything 42
@@ -137,7 +137,7 @@ python -m nsbi.taylr fit \
    --model.learning_rate 1e-3 \
    --model.n_layers 10 \
    --model.n_nodes 100 \
-   --trainer.accelerator auto \
+   --trainer.accelerator gpu \
    --trainer.devices 4 \
    --trainer.max_epochs 500 \
    --seed_everything 42

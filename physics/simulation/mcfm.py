@@ -67,7 +67,7 @@ def stack( *events ):
 
   return Process(kinematics, components, weights, allow_negative_weights=True)
 
-def from_csv(file_path : str, *, cross_section : float = None, n_rows : int =None):
+def from_csv(file_path : str, *, cross_section : float = None, n_rows : int =None, kinematics : list = None):
   """
   Open an MCFM CSV file containing a physics process.
 
@@ -89,7 +89,7 @@ def from_csv(file_path : str, *, cross_section : float = None, n_rows : int =Non
   dfs = [pd.read_csv(fp, nrows=n_rows) for fp in file_paths]
   df = pd.concat(dfs, ignore_index=True)
 
-  kinematics = df[csv_kinematics]
+  kinematics = df[csv_kinematics+kinematics]
   components = df[csv_components]
   weights = df[csv_weight]
 
