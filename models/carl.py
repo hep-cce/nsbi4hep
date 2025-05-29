@@ -1,5 +1,6 @@
 import torch
 from torch import nn
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 import lightning as L
 from lightning.pytorch.callbacks import ModelCheckpoint, EarlyStopping
@@ -35,7 +36,7 @@ class CARL(L.LightningModule):
         callbacks.append(ModelCheckpoint(
             monitor="val_loss",
             mode="min",
-            save_top_k=3,
+            save_top_k=5,
             filename="{epoch:02d}-{val_loss:.2f}"
         ))
 
@@ -48,7 +49,7 @@ class CARL(L.LightningModule):
 
         callbacks.append(EarlyStopping(
             monitor="val_loss",
-            patience=10,
+            patience=20,
             mode="min"
         ))
 
@@ -76,10 +77,35 @@ class CARL(L.LightningModule):
         return loss
     
     def predict_step(self, batch, batch_idx):
-        x, = batch
+        x = batch if not isinstance(batch, (tuple, list)) else batch[0]
         return self.model(x).flatten()
 
     def configure_optimizers(self):
         # NAdam optimizer
         optimizer = torch.optim.NAdam(self.parameters(), lr=self.lr)
-        return optimizer
+        lr_scheduler = ReduceLROnPlateau(optimizer,factor=0.1,patience=5)
+        lr_scheduler_config = {
+            "scheduler": lr_scheduler,
+            # The unit of the scheduler's step size, could also be 'step'.
+            # 'epoch' updates the scheduler on epoch end whereas 'step'
+            # updates it after a optimizer update.
+            "interval": "epoch",
+            # How many epochs/steps should pass between calls to
+            # `scheduler.step()`. 1 corresponds to updating the learning
+            # rate after every epoch/step.
+            "frequency": 1,
+            # Metric to monitor for schedulers like `ReduceLROnPlateau`
+            "monitor": "val_loss",
+            # If set to `True`, will enforce that the value specified 'monitor'
+            # is available when the scheduler is updated, thus stopping
+            # training if not found. If set to `False`, it will only produce a warning
+            "strict": True,
+            # If using the `LearningRateMonitor` callback to monitor the
+            # learning rate progress, this keyword can be used to specify
+            # a custom logged name
+            "name": None,
+        }
+        return {
+            "optimizer": optimizer,
+            "lr_scheduler": lr_scheduler_config
+        }

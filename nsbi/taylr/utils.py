@@ -46,22 +46,22 @@ def load_results(output_dir, coeffs):
         with open(os.path.join(taylr_dir, 'scaler_y.pkl'), 'rb') as f:
             scaler_y = pickle.load(f)
 
-        # Get earliest version and checkpoint
         logs_dir = os.path.join(taylr_dir, 'lightning_logs')
+
         versions = [d for d in os.listdir(logs_dir) if d.startswith('version_') and d.split('_')[-1].isdigit()]
         if not versions:
             raise FileNotFoundError(f"No version directories found in {logs_dir}")
-        earliest_version = min(versions, key=lambda v: int(v.split('_')[-1]))
+        latest_version = max(versions, key=lambda v: int(v.split('_')[-1]))
 
-        checkpoint_dir = os.path.join(logs_dir, earliest_version, 'checkpoints')
+        checkpoint_dir = os.path.join(logs_dir, latest_version, 'checkpoints')
         all_ckpts = [f for f in os.listdir(checkpoint_dir) if ckpt_pattern.match(f)]
         if not all_ckpts:
             raise FileNotFoundError(f"No matching checkpoint files found in {checkpoint_dir}")
         all_ckpts.sort(key=lambda f: int(ckpt_pattern.match(f).group(1)))
-        earliest_ckpt = os.path.join(checkpoint_dir, all_ckpts[0])
+        latest_ckpt = os.path.join(checkpoint_dir, all_ckpts[-1])
 
         # Load model
-        model = TAYLR.load_from_checkpoint(checkpoint_path=earliest_ckpt)
+        model = TAYLR.load_from_checkpoint(checkpoint_path=latest_ckpt)
 
         # Assign to proper location
         models[n][m][l] = model

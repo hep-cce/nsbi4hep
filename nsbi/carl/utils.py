@@ -11,6 +11,8 @@ def load_results(output_dir):
 
     with open(os.path.join(carl_dir, 'events_numerator_test.pkl'), 'rb') as f:
         events_num_test = pickle.load(f)
+    with open(os.path.join(carl_dir, 'events_denominator_test.pkl'), 'rb') as f:
+        events_denom_test = pickle.load(f)
     with open(os.path.join(carl_dir, 'scaler.pkl'), 'rb') as f:
         scaler = pickle.load(f)
 
@@ -33,4 +35,4 @@ def load_results(output_dir):
 
     ckpt = CARL.load_from_checkpoint(checkpoint_path=os.path.join(checkpoint_dir, ckpt_path))
 
-    return events_num_test, scaler, ckpt
+    return events_num_test, events_denom_test, scaler, ckpt

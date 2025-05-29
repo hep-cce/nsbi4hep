@@ -105,15 +105,15 @@ class BalancedDataset(Dataset):
         X_denominator = events_denominator.kinematics[features].to_numpy()
         self.X = np.concatenate([X_numerator, X_denominator])
 
-        # numerator = signal = 1, denominator = background = 0
-        self.s = np.concatenate([np.ones(len(X_numerator)), np.zeros(len(X_denominator))])
-
         # balanced weights
         w_numerator = events_numerator.weights.to_numpy()
         w_denominator = events_denominator.weights.to_numpy()
         w_numerator /= w_numerator.sum()
         w_denominator /= w_denominator.sum()
         self.w = np.concatenate([w_numerator, w_denominator])
+
+        # numerator = signal = 1, denominator = background = 0
+        self.s = np.concatenate([np.ones_like(w_numerator), np.zeros_like(w_denominator)])
 
         if scaler is not None:
             self.X = scaler.transform(self.X)

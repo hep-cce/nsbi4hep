@@ -12,9 +12,9 @@ for i in {1..4}; do
       --data.events '/ptmp/mpp/taepa/higgs-offshell-interpretation/data/zz4l/ggZZ_sbi/events_analyzed.csv' \
       --data.component sbi \
       --data.coefficient "$coeff" \
-      --data.sample_size 6_000_000 \
+      --data.sample_size 10_000_000 \
       --data.batch_size 1024 \
-      --model.learning_rate 1e-3 \
+      --model.learning_rate 1e-4 \
       --model.n_layers 10 \
       --model.n_nodes 100 \
       --trainer.accelerator gpu \
@@ -36,9 +36,9 @@ for j in {1..2}; do
       --data.events '/ptmp/mpp/taepa/higgs-offshell-interpretation/data/zz4l/ggZZ_sbi/events_analyzed.csv' \
       --data.component sbi \
       --data.coefficient "$coeff" \
-      --data.sample_size 6_000_000 \
+      --data.sample_size 10_000_000 \
       --data.batch_size 1024 \
-      --model.learning_rate 1e-3 \
+      --model.learning_rate 1e-4 \
       --model.n_layers 10 \
       --model.n_nodes 100 \
       --trainer.accelerator gpu \
@@ -60,9 +60,9 @@ for k in {1..2}; do
       --data.events '/ptmp/mpp/taepa/higgs-offshell-interpretation/data/zz4l/ggZZ_sbi/events_analyzed.csv' \
       --data.component sbi \
       --data.coefficient "$coeff" \
-      --data.sample_size 6_000_000 \
+      --data.sample_size 10_000_000 \
       --data.batch_size 1024 \
-      --model.learning_rate 1e-3 \
+      --model.learning_rate 1e-4 \
       --model.n_layers 10 \
       --model.n_nodes 100 \
       --trainer.accelerator gpu \
@@ -84,9 +84,9 @@ for i in {1..2}; do
       --data.events '/ptmp/mpp/taepa/higgs-offshell-interpretation/data/zz4l/ggZZ_sbi/events_analyzed.csv' \
       --data.component sbi \
       --data.coefficient "$coeff" \
-      --data.sample_size 6_000_000 \
+      --data.sample_size 10_000_000 \
       --data.batch_size 1024 \
-      --model.learning_rate 1e-3 \
+      --model.learning_rate 1e-4 \
       --model.n_layers 10 \
       --model.n_nodes 100 \
       --trainer.accelerator gpu \
@@ -108,9 +108,9 @@ for i in {1..2}; do
       --data.events '/ptmp/mpp/taepa/higgs-offshell-interpretation/data/zz4l/ggZZ_sbi/events_analyzed.csv' \
       --data.component sbi \
       --data.coefficient "$coeff" \
-      --data.sample_size 6_000_000 \
+      --data.sample_size 10_000_000 \
       --data.batch_size 1024 \
-      --model.learning_rate 1e-3 \
+      --model.learning_rate 1e-4 \
       --model.n_layers 10 \
       --model.n_nodes 100 \
       --trainer.accelerator gpu \
@@ -132,9 +132,9 @@ python -m nsbi.taylr fit \
    --data.events '/ptmp/mpp/taepa/higgs-offshell-interpretation/data/zz4l/ggZZ_sbi/events_analyzed.csv' \
    --data.component sbi \
    --data.coefficient "$coeff" \
-   --data.sample_size 6_000_000 \
+   --data.sample_size 10_000_000 \
    --data.batch_size 1024 \
-   --model.learning_rate 1e-3 \
+   --model.learning_rate 1e-4 \
    --model.n_layers 10 \
    --model.n_nodes 100 \
    --trainer.accelerator gpu \
