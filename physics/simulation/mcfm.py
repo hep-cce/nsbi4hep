@@ -65,9 +65,9 @@ def stack( *events ):
   components = pd.concat([e.components for e in events], ignore_index=True)
   weights = pd.concat([e.weights for e in events], ignore_index=True)
 
-  return Process(kinematics, components, weights, allow_negative_weights=True)
+  return Process(kinematics, components, weights)
 
-def from_csv(file_path : str, *, cross_section : float = None, n_rows : int = None, kinematics : list = None):
+def from_csv(file_path : str, *, cross_section : float = None, n_rows : int = None, kinematics : list = None, ignore_negative_weights : bool = True):
   """
   Open an MCFM CSV file containing a physics process.
 
@@ -96,6 +96,13 @@ def from_csv(file_path : str, *, cross_section : float = None, n_rows : int = No
   components = df[csv_components]
   weights = df[csv_weight]
 
+  # HACK: to avoid negative weights
+  # only e.g. O(1)/O(1M) events have infinitesimally-small negative weights due to numerical precision
+  # you do NOT want to do this for interference-only samples (or NLO samples in the future...)
+  if ignore_negative_weights:
+    weights = weights.copy()
+    weights[weights < 0] = 0.0
+
   if cross_section is not None:
     weights *= cross_section / weights.sum() 
 
@@ -121,14 +128,9 @@ def check_consistency(events):
 
 class Process():
 
-  def __init__(self, kinematics=None, components=None, weights=None, *, allow_negative_weights = False):
+  def __init__(self, kinematics=None, components=None, weights=None):
     self.kinematics = kinematics
     self.components = components
-
-    # HACK: to avoid negative weights
-    # only e.g. O(1)/O(1M) events have infinitesimally-small negative weights due to numerical precision
-    if not allow_negative_weights:
-      weights[weights < 0] = 0.0
     self.weights = weights
 
     self.probabilities = weights / weights.sum()

@@ -1,10 +1,16 @@
 {
     "zz4l" : [
         "ggZZ_sbi",
+        "ggZZ_sig",
+        "ggZZ_bkg",
+        "ggZZ_int",
         "qqZZ"
     ],
     "zz2l2v" : [
         "ggZZ_sbi",
+        "ggZZ_sig",
+        "ggZZ_bkg",
+        "ggZZ_int",
         "qqZZ"
     ],
     "wwlvlv" : [

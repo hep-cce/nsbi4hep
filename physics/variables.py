@@ -1,17 +1,12 @@
-import numpy as np
+from .constants import c6_to_cH, ct_to_ctH, cg_to_cHG
 
-c6_val = +18.7574
-cH_val = -40
+cH_val = 20.0
+ctH_val = 10.0
+cHG_val = 0.1
 
-ct_val = +1.27167
-ctH_val = +20
-
-cg_val = +1.35156
-cHG_val = +0.1
-
-c6_to_cH  = cH_val/c6_val
-ct_to_ctH = ctH_val/ct_val
-cg_to_cHG = cHG_val/cg_val
+c6_val = cH_val / c6_to_cH
+ct_val = ctH_val / ct_to_ctH
+cg_val = cHG_val / cg_to_cHG
 
 eft_terms = [
     [1, 0, 0],

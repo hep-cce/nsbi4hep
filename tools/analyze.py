@@ -15,7 +15,7 @@ if __name__ == "__main__":
     parser.add_argument('--data-dir', required=False, default='data/', help='Physics normalized & analyzed events output')
     parser.add_argument('--xsec-json', required=False, default='xsec.json', help='List of process names to merge')
     parser.add_argument('--events-csv', required=False, default='events_*.csv', help='List of process names to merge')
-    parser.add_argument('--analyzed-csv', required=False, default='events_analyzed.csv', help='Physics normalized & analyzed events output')
+    parser.add_argument('--analyzed-csv', required=False, default='analyzed.csv', help='Physics normalized & analyzed events output')
 
     args = parser.parse_args()
 
@@ -40,7 +40,7 @@ if __name__ == "__main__":
 
             print('Analysis :', os.path.join(analysis,process))
 
-            events = mcfm.from_csv(cross_section=np.prod(xsec[process]),file_path=os.path.join(args.data_dir,analysis,process,args.events_csv))
+            events = mcfm.from_csv(cross_section=np.prod(xsec[process]),file_path=os.path.join(args.data_dir,analysis,process,args.events_csv),ignore_negative_weights=False)
 
             events_analyzed = os.path.join(args.data_dir, analysis, args.analyzed_csv)        
 

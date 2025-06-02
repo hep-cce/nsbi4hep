@@ -52,27 +52,27 @@ class WWLVLV():
 def analyze(events):
 
     events_analyzed = events.calculate(WWLVLV(lepton_indices=[4,5],neutrino_indices=[3,6]))
-    print('Inclusive             |', events_analyzed.weights.sum())
+    print(f'Inclusive            | {events_analyzed.weights.sum()} +/- {np.sqrt(np.sum(np.square(events_analyzed.weights)))}')
 
     events_analyzed = events_analyzed.filter(LeptonPtEtaCut(1,pt_min=30,eta_max=2.5)).filter(LeptonPtEtaCut(2,pt_min=20,eta_max=2.5))
-    print(f'lepton (pT,eta) cuts |', events_analyzed.weights.sum())
+    print(f'lepton (pT,eta) cuts | {events_analyzed.weights.sum()} +/- {np.sqrt(np.sum(np.square(events_analyzed.weights)))}')
 
     met_max = 60
     events_analyzed = events_analyzed.filter(MinMETCut(met_max))
-    print(f'MET cut              |', events_analyzed.weights.sum())
+    print(f'MET cut              | {events_analyzed.weights.sum()} +/- {np.sqrt(np.sum(np.square(events_analyzed.weights)))}')
 
     events_analyzed = events_analyzed.filter(MTZZMinCut(250))
-    print(f'mTZZ cut             |', events_analyzed.weights.sum())
+    print(f'mTZZ cut             | {events_analyzed.weights.sum()} +/- {np.sqrt(np.sum(np.square(events_analyzed.weights)))}')
 
     events_analyzed = events_analyzed.filter(ZMassWindow(80,100))
-    print(f'mZ window            |', events_analyzed.weights.sum())
+    print(f'mZ window            | {events_analyzed.weights.sum()} +/- {np.sqrt(np.sum(np.square(events_analyzed.weights)))}')
 
     dphillmet_min = 2.5
     events_analyzed = events_analyzed.filter(MinDPhillMETCut(dphillmet_min))
-    print(f'DPhillMET cut        |', events_analyzed.weights.sum())
+    print(f'DPhillMET cut        | {events_analyzed.weights.sum()} +/- {np.sqrt(np.sum(np.square(events_analyzed.weights)))}')
 
     drll_max = 2.0
     events_analyzed = events_analyzed.filter(MaxDRllCut(drll_max))
-    print(f'DRll cut             |', events_analyzed.weights.sum())
+    print(f'DRll cut             | {events_analyzed.weights.sum()} +/- {np.sqrt(np.sum(np.square(events_analyzed.weights)))}')
 
     return events_analyzed
