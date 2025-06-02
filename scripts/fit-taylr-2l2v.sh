@@ -9,7 +9,7 @@ for i in {1..4}; do
    mkdir -p "$dir" && cd "$dir"
    python -m nsbi.taylr fit \
       --data.features '["l1_pt", "l1_eta", "l1_phi", "l1_energy", "l2_pt", "l2_eta", "l2_phi", "l2_energy", "met", "met_phi"]' \
-      --data.events '/ptmp/mpp/taepa/higgs-offshell-interpretation/data/zz2l2v/ggZZ_sbi/events_analyzed.csv' \
+      --data.events '/ptmp/mpp/taepa/higgs-offshell-interpretation/data/zz2l2v/ggZZ_sbi/analyzed.csv' \
       --data.component sbi \
       --data.coefficient "$coeff" \
       --data.sample_size 10_000_000 \
@@ -33,7 +33,7 @@ for j in {1..2}; do
    mkdir -p "$dir" && cd "$dir"
    python -m nsbi.taylr fit \
       --data.features '["l1_pt", "l1_eta", "l1_phi", "l1_energy", "l2_pt", "l2_eta", "l2_phi", "l2_energy", "met", "met_phi"]' \
-      --data.events '/ptmp/mpp/taepa/higgs-offshell-interpretation/data/zz2l2v/ggZZ_sbi/events_analyzed.csv' \
+      --data.events '/ptmp/mpp/taepa/higgs-offshell-interpretation/data/zz2l2v/ggZZ_sbi/analyzed.csv' \
       --data.component sbi \
       --data.coefficient "$coeff" \
       --data.sample_size 10_000_000 \
@@ -57,7 +57,7 @@ for k in {1..2}; do
    mkdir -p "$dir" && cd "$dir"
    python -m nsbi.taylr fit \
       --data.features '["l1_pt", "l1_eta", "l1_phi", "l1_energy", "l2_pt", "l2_eta", "l2_phi", "l2_energy", "met", "met_phi"]' \
-      --data.events '/ptmp/mpp/taepa/higgs-offshell-interpretation/data/zz2l2v/ggZZ_sbi/events_analyzed.csv' \
+      --data.events '/ptmp/mpp/taepa/higgs-offshell-interpretation/data/zz2l2v/ggZZ_sbi/analyzed.csv' \
       --data.component sbi \
       --data.coefficient "$coeff" \
       --data.sample_size 10_000_000 \
@@ -81,7 +81,7 @@ for i in {1..2}; do
    mkdir -p "$dir" && cd "$dir"
    python -m nsbi.taylr fit \
       --data.features '["l1_pt", "l1_eta", "l1_phi", "l1_energy", "l2_pt", "l2_eta", "l2_phi", "l2_energy", "met", "met_phi"]' \
-      --data.events '/ptmp/mpp/taepa/higgs-offshell-interpretation/data/zz2l2v/ggZZ_sbi/events_analyzed.csv' \
+      --data.events '/ptmp/mpp/taepa/higgs-offshell-interpretation/data/zz2l2v/ggZZ_sbi/analyzed.csv' \
       --data.component sbi \
       --data.coefficient "$coeff" \
       --data.sample_size 10_000_000 \
@@ -105,7 +105,7 @@ for i in {1..2}; do
    mkdir -p "$dir" && cd "$dir"
    python -m nsbi.taylr fit \
       --data.features '["l1_pt", "l1_eta", "l1_phi", "l1_energy", "l2_pt", "l2_eta", "l2_phi", "l2_energy", "met", "met_phi"]' \
-      --data.events '/ptmp/mpp/taepa/higgs-offshell-interpretation/data/zz2l2v/ggZZ_sbi/events_analyzed.csv' \
+      --data.events '/ptmp/mpp/taepa/higgs-offshell-interpretation/data/zz2l2v/ggZZ_sbi/analyzed.csv' \
       --data.component sbi \
       --data.coefficient "$coeff" \
       --data.sample_size 10_000_000 \
@@ -129,7 +129,7 @@ coeff="[${i},${j},${k}]"
 mkdir -p "$dir" && cd "$dir"
 python -m nsbi.taylr fit \
    --data.features '["l1_pt", "l1_eta", "l1_phi", "l1_energy", "l2_pt", "l2_eta", "l2_phi", "l2_energy", "met", "met_phi"]' \
-   --data.events '/ptmp/mpp/taepa/higgs-offshell-interpretation/data/zz2l2v/ggZZ_sbi/events_analyzed.csv' \
+   --data.events '/ptmp/mpp/taepa/higgs-offshell-interpretation/data/zz2l2v/ggZZ_sbi/analyzed.csv' \
    --data.component sbi \
    --data.coefficient "$coeff" \
    --data.sample_size 10_000_000 \
