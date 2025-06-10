@@ -5,12 +5,16 @@ import numpy as np
 
 from models.taylr import TAYLR
 
-def load_results(output_dir, coeffs):
+import torch
+from torch.utils.data import TensorDataset, DataLoader
+import lightning as L
+
+def load_results(output_dir, eft_terms):
     """
     Load the results from the TAYLR runs.
     Args:
         output_dir (str): Directory where the TAYLR runs are stored.
-        coeffs (list): List of (n, m, l) triplets used in the TAYLR runs.
+        eft_terms (list): List of (n, m, l) triplets used in the TAYLR runs.
     Returns:
         events_test (list): List of test events.
         scaler_x (object): Scaler for the input features.
@@ -21,16 +25,16 @@ def load_results(output_dir, coeffs):
         return f'taylr_c6_{n}_ct_{m}_cg_{l}'
 
     # Determine shape of the 3D arrays
-    max_n = max(c[0] for c in coeffs) + 1
-    max_m = max(c[1] for c in coeffs) + 1
-    max_l = max(c[2] for c in coeffs) + 1
+    max_n = max(c[0] for c in eft_terms) + 1
+    max_m = max(c[1] for c in eft_terms) + 1
+    max_l = max(c[2] for c in eft_terms) + 1
 
     # Initialize 3D arrays filled with None
     models = [[[None for _ in range(max_l)] for _ in range(max_m)] for _ in range(max_n)]
     scalers_y = [[[None for _ in range(max_l)] for _ in range(max_m)] for _ in range(max_n)]
 
     # Load common files from the first run
-    first_dir = os.path.join(output_dir, folder_name(*coeffs[0]))
+    first_dir = os.path.join(output_dir, folder_name(*eft_terms[0]))
     with open(os.path.join(first_dir, 'events_test.pkl'), 'rb') as f:
         events_test = pickle.load(f)
     with open(os.path.join(first_dir, 'scaler_X.pkl'), 'rb') as f:
@@ -39,7 +43,7 @@ def load_results(output_dir, coeffs):
     # pattern for matching checkpoint filenames, e.g., 'epoch=3-step=100.ckpt'
     ckpt_pattern = re.compile(r"epoch=(\d+).*\.ckpt")
 
-    for n, m, l in coeffs:
+    for n, m, l in eft_terms:
         taylr_dir = os.path.join(output_dir, folder_name(n, m, l))
 
         # Load scaler_y
@@ -68,3 +72,24 @@ def load_results(output_dir, coeffs):
         scalers_y[n][m][l] = scaler_y
 
     return events_test, scaler_x, models, scalers_y
+
+def get_coefficients(events, features, scaler_X, models, scalers_y):
+    trainer = L.Trainer(accelerator='gpu', devices=1)
+    X = scaler_X.transform(events.kinematics[features].to_numpy())
+    dl = DataLoader(TensorDataset(torch.tensor(X,dtype=torch.float32)), batch_size=1024)
+
+    coeffs = [[[None for _ in k] for k in j] for j in models]
+
+    for i, models_c6 in enumerate(models):
+        for j, models_c6_ct in enumerate(models_c6):
+            for k, model_c6_ct_cg in enumerate(models_c6_ct):
+                if model_c6_ct_cg is None:
+                    coeffs[i][j][k] = np.zeros(len(X))
+                else:
+                    output = torch.cat(trainer.predict(model_c6_ct_cg, dl))
+                    coeffs[i][j][k] = scalers_y[i][j][k].inverse_transform(output.numpy().reshape(-1, 1)).reshape(-1)
+
+    # populate (0,0,0) with 1
+    coeffs[0][0][0] = np.ones_like(coeffs[1][0][0])
+
+    return torch.tensor(np.array(coeffs)).permute(3,0,1,2)
