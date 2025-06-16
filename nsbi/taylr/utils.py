@@ -1,3 +1,4 @@
+import gc
 import os
 import re
 import pickle
@@ -35,6 +36,8 @@ def load_results(output_dir, eft_terms):
 
     # Load common files from the first run
     first_dir = os.path.join(output_dir, folder_name(*eft_terms[0]))
+    with open(os.path.join(first_dir, 'events_train.pkl'), 'rb') as f:
+        events_train = pickle.load(f)
     with open(os.path.join(first_dir, 'events_test.pkl'), 'rb') as f:
         events_test = pickle.load(f)
     with open(os.path.join(first_dir, 'scaler_X.pkl'), 'rb') as f:
@@ -71,12 +74,12 @@ def load_results(output_dir, eft_terms):
         models[n][m][l] = model
         scalers_y[n][m][l] = scaler_y
 
-    return events_test, scaler_x, models, scalers_y
+    return (events_train, events_test), scaler_x, models, scalers_y
 
 def get_coefficients(events, features, scaler_X, models, scalers_y):
     trainer = L.Trainer(accelerator='gpu', devices=1)
     X = scaler_X.transform(events.kinematics[features].to_numpy())
-    dl = DataLoader(TensorDataset(torch.tensor(X,dtype=torch.float32)), batch_size=1024)
+    dl = DataLoader(TensorDataset(torch.tensor(X,dtype=torch.float32)), batch_size=1024, num_workers=1)
 
     coeffs = [[[None for _ in k] for k in j] for j in models]
 
@@ -91,5 +94,9 @@ def get_coefficients(events, features, scaler_X, models, scalers_y):
 
     # populate (0,0,0) with 1
     coeffs[0][0][0] = np.ones_like(coeffs[1][0][0])
+
+    del trainer
+    torch.cuda.empty_cache()
+    gc.collect()
 
     return torch.tensor(np.array(coeffs)).permute(3,0,1,2)
