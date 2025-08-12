@@ -77,7 +77,7 @@ class BalancedDataModule(L.LightningDataModule):
                 events_denominator_val = pickle.load(f)
 
             self.training_data = BalancedDataset(events_numerator_train, events_denominator_train, self.features, scaler = self.scaler, random_state=self.random_state)
-            self.validation_data = BalancedDataset(events_numerator_val, events_denominator_val, self.features, scaler = self.scaler, random_state=self.random_state)
+            self.validation_data = BalancedDataset(events_numerator_val, events_denominator_val, self.features, scaler = self.scaler, random_state=self.random_state, return_kin=True)
 
         elif stage == 'test':
             with open(os.path.join(self.data_dir, 'events_numerator_test.pkl'), 'rb') as f:
@@ -97,14 +97,15 @@ class BalancedDataModule(L.LightningDataModule):
         return DataLoader(self.testing_data, batch_size=self.batch_size, num_workers=8)
 
 class BalancedDataset(Dataset):
-    def __init__(self, events_numerator = None, events_denominator = None, features = None, scaler = None, random_state = None):
+    def __init__(self, events_numerator = None, events_denominator = None, features = None, scaler = None, random_state = None, return_kin=False):
         super().__init__()
 
         # get features
         X_numerator = events_numerator.kinematics[features].to_numpy()
         X_denominator = events_denominator.kinematics[features].to_numpy()
         self.X = np.concatenate([X_numerator, X_denominator])
-
+        self.kin  = np.concatenate([X_numerator, X_denominator])
+        
         # balanced weights
         w_numerator = events_numerator.weights.to_numpy()
         w_denominator = events_denominator.weights.to_numpy()
@@ -117,11 +118,21 @@ class BalancedDataset(Dataset):
 
         if scaler is not None:
             self.X = scaler.transform(self.X)
-        
-        self.X, self.s, self.w = shuffle(self.X, self.s, self.w, random_state=random_state)
+            
+        self.return_kin = return_kin                  
+        self.X, self.s, self.w, self.kin = shuffle(
+            self.X, self.s, self.w, self.kin, random_state=random_state)
     
     def __len__(self):
         return len(self.s)
 
-    def __getitem__(self, index):
-        return torch.tensor(self.X[index], dtype=torch.float32), torch.tensor(self.s[index], dtype=torch.float32), torch.tensor(self.w[index], dtype=torch.float32)
+    
+    def __getitem__(self, idx):
+        x  = torch.as_tensor(self.X[idx],  dtype=torch.float32)
+        y  = torch.as_tensor(self.s[idx],  dtype=torch.float32)
+        w  = torch.as_tensor(self.w[idx],  dtype=torch.float32)
+
+        if self.return_kin:                            # ⇢ validation loader
+            kin = torch.as_tensor(self.kin[idx], dtype=torch.float32)
+            return x, y, w, kin
+        return x, y, w   

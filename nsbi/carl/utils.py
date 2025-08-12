@@ -10,7 +10,8 @@ import lightning as L
 
 def load_results(output_dir):
 
-    carl_dir = os.path.join(output_dir, 'carl')
+    #carl_dir = os.path.join(output_dir, 'carl')
+    carl_dir = output_dir
     logs_dir = os.path.join(carl_dir, 'lightning_logs')
 
     with open(os.path.join(carl_dir, 'events_numerator_train.pkl'), 'rb') as f:

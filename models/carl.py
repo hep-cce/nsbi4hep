@@ -64,7 +64,7 @@ class CARL(L.LightningModule):
         y = y.flatten()
         w = w.flatten()
         loss = (self.loss_fn(y_hat, y) * w).sum() / w.sum()
-        self.log("train_loss", loss, on_step=False, on_epoch=True, prog_bar=True, sync_dist=True)
+        self.log("train_loss", loss, on_step=False, on_epoch=True, prog_bar=False, sync_dist=True)
         return loss
 
     def validation_step(self, batch, batch_idx):
@@ -73,7 +73,7 @@ class CARL(L.LightningModule):
         y = y.flatten()
         w = w.flatten()
         loss = (self.loss_fn(y_hat, y) * w).sum() / w.sum()
-        self.log("val_loss", loss, on_step=False, on_epoch=True, prog_bar=True, sync_dist=True)
+        self.log("val_loss", loss, on_step=False, on_epoch=True, prog_bar=False, sync_dist=True)
         return loss
     
     def predict_step(self, batch, batch_idx):
