@@ -66,9 +66,6 @@ def main_function(cfg: DictConfig) -> None:
     log.info("Instantiating datamodule <{}>", cfg.datamodule._target_)
     datamodule: LightningDataModule = hydra.utils.instantiate(cfg.datamodule)
 
-    if not (Path(datamodule.data_dir) / "scaler.pkl").exists():
-        datamodule.prepare_data()
-
     if stage in ["fit", "finetune", "resume"]:
         datamodule.setup("fit")
     else:
