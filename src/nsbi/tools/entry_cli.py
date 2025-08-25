@@ -78,6 +78,8 @@ def main_function(cfg: DictConfig) -> None:
         log.info("Compiling model with torch.compile()")
         if hasattr(model, "network"):
             model.network = torch.compile(model.network, **compile_kwargs)  # type: ignore
+        elif hasattr(model, "model"):
+            model.model = torch.compile(model.model, **compile_kwargs)  # type: ignore
         else:
             # If the model does not have a 'network' attribute, compile the model directly.
             # This is useful for models that do not follow the typical structure.
@@ -177,6 +179,56 @@ def main_function(cfg: DictConfig) -> None:
 
     if cfg.trainer.accelerator == "gpu":
         trainer.print(torch.cuda.memory_summary())
+
+
+def main_tune_function(cfg: DictConfig) -> None:
+    """Hyperparameter tuning with Ray Tune.
+
+    This method is wrapped in optional @task_wrapper decorator which applies extra utilities
+    before and after the call.
+
+    Args:
+        cfg (DictConfig): Configuration composed by Hydra.
+    """
+    from ray import tune
+    from ray.train import RunConfig, ScalingConfig, CheckpointConfig
+    from ray.train.torch import TorchTrainer
+
+    # set seed for random number generators in pytorch, numpy and python.random
+    if cfg.get("seed"):
+        L.seed_everything(cfg.seed)
+
+    scheduler = hydra.utils.instantiate(cfg.hpo_tune.get("scheduler"))
+
+    scaling_config = ScalingConfig(
+        num_workers=cfg.hpo_tune.get("num_workers", 1),
+        use_gpu=cfg.trainer.get("accelerator", "") == "gpu",
+        resources_per_worker=cfg.hpo_tune.get("resources_per_worker", None),
+    )
+    ckpt_callback = cfg.callbacks.model_checkpoint
+    run_config = RunConfig(
+        checkpoint_config=CheckpointConfig(
+            checkpoint_score_attribute=ckpt_callback.monitor,
+            num_to_keep=ckpt_callback.save_top_k,
+            checkpoint_score_order=ckpt_callback.mode,
+            checkpoint_frequency=1,
+        ),
+    )
+    ray_trainer = TorchTrainer(main_function, scaling_config=scaling_config, run_config=run_config)
+    search_space = cfg.hpo_tune.get("search_space", {})
+
+    tuner = tune.Tuner(
+        ray_trainer,
+        param_space={"config": search_space},
+        tune_config=tune.TuneConfig(
+            scheduler=scheduler,
+            num_samples=cfg.hpo_tune.get("num_samples", 1),
+            metric=ckpt_callback.monitor,
+            mode=ckpt_callback.mode,
+        ),
+    )
+    analysis = tuner.fit()
+    log.info(f"Best hyperparameters found were: {analysis.get_best_result()}")
 
 
 def main() -> None:

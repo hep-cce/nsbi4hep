@@ -1,9 +1,24 @@
+seed: 42
+do_hpo_tune: false
+stage: "fit"
+do_compile: false
+compile_kwargs:
+  backend: inductor
+  dynamic: true
+  mode: max-autotune
+
 hpo_tune:
-  resources:
-    gpu_per_trial: 1
-    cpu_per_trial: 4
-    num_gpus: 4
-    num_nodes: 10
+  num_samples: 1
+  scheduler:
+    _target_: ray.tune.schedulers.ASHAScheduler
+    max_t: 50
+    grace_period: 5
+    reduction_factor: 2
+
+  num_workers: 4
+  resources_per_worker:
+    cpu: 4
+    gpu: 1
 
   search_space:
     n_layers: "randint:5,15"
@@ -46,15 +61,6 @@ model:
   n_layers: 4
   n_nodes: 100
   learning_rate: 0.001
-
-seed: 42
-do_hpo_tune: false
-stage: "fit"
-do_compile: false
-compile_kwargs:
-  backend: inductor
-  dynamic: true
-  mode: max-autotune
 
 logger:
   csv:
