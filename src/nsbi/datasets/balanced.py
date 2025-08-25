@@ -9,8 +9,9 @@ import torch
 from torch.utils.data import DataLoader, Dataset
 import lightning as L
 
-from physics.simulation import mcfm, msq
-from physics.analysis import zz4l, zz2l2v
+from nsbi.physics.simulation import mcfm, msq
+from nsbi.physics.analysis import zz4l, zz2l2v
+
 
 class BalancedDataModule(L.LightningDataModule):
 
@@ -105,7 +106,7 @@ class BalancedDataset(Dataset):
         X_denominator = events_denominator.kinematics[features].to_numpy()
         self.X = np.concatenate([X_numerator, X_denominator])
         self.kin  = np.concatenate([X_numerator, X_denominator])
-        
+
         # balanced weights
         w_numerator = events_numerator.weights.to_numpy()
         w_denominator = events_denominator.weights.to_numpy()
@@ -118,15 +119,15 @@ class BalancedDataset(Dataset):
 
         if scaler is not None:
             self.X = scaler.transform(self.X)
-            
-        self.return_kin = return_kin                  
+
+        self.return_kin = return_kin
         self.X, self.s, self.w, self.kin = shuffle(
             self.X, self.s, self.w, self.kin, random_state=random_state)
-    
+
     def __len__(self):
         return len(self.s)
 
-    
+
     def __getitem__(self, idx):
         x  = torch.as_tensor(self.X[idx],  dtype=torch.float32)
         y  = torch.as_tensor(self.s[idx],  dtype=torch.float32)
@@ -135,4 +136,4 @@ class BalancedDataset(Dataset):
         if self.return_kin:                            # ⇢ validation loader
             kin = torch.as_tensor(self.kin[idx], dtype=torch.float32)
             return x, y, w, kin
-        return x, y, w   
+        return x, y, w

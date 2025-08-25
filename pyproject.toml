@@ -7,13 +7,19 @@ name = "nsbi"
 version = "0.1.0.dev0"
 description = "Neural Simulation-based Inference"
 readme = "README.md"
-requires-python = "<4.0,>=3.11"
+requires-python = "<3.14,>=3.11"
 license = {file = "LICENSE"}
 keywords = ["nsbi", "ray", "hpo", "hpc"]
 authors = [
   {name = "D. Bollweg", email = "dbollweg@bnl.gov" }
 ]
 dependencies = [
+    "torch (>=2.8.0,<3.0.0)",
+    "scikit-learn (>=1.7.1,<2.0.0)",
+    "lightning (>=2.5.3,<3.0.0)",
+    "scipy (>=1.16.1,<2.0.0)",
+    "vector (>=1.6.3,<2.0.0)",
+    "pandas (>=2.3.2,<3.0.0)",
 ]
 
 [project.urls]

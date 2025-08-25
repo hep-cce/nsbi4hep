@@ -4,8 +4,8 @@ import argparse
 import numpy as np
 import pandas as pd
 
-from physics.simulation import mcfm
-from physics.analysis import zz4l, zz2l2v, wwlvlv
+from nsbi.physics.simulation import mcfm
+from nsbi.physics.analysis import zz4l, zz2l2v, wwlvlv
 
 if __name__ == "__main__":
 
@@ -31,7 +31,7 @@ if __name__ == "__main__":
         elif analysis == 'zz2l2v':
             analyze = zz2l2v.analyze
         elif analysis == 'wwlvlv':
-            analyze = wwlvlv.analyze 
+            analyze = wwlvlv.analyze
 
         with open(os.path.join(args.data_dir, analysis, args.xsec_json), 'r') as f:
             xsec = json.load(f)
@@ -42,7 +42,7 @@ if __name__ == "__main__":
 
             events = mcfm.from_csv(cross_section=np.prod(xsec[process]),file_path=os.path.join(args.data_dir,analysis,process,args.events_csv),ignore_negative_weights=False)
 
-            events_analyzed = os.path.join(args.data_dir, analysis, args.analyzed_csv)        
+            events_analyzed = os.path.join(args.data_dir, analysis, args.analyzed_csv)
 
             events_analyzed = analyze(events)
 

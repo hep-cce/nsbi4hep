@@ -3,7 +3,7 @@ import vector
 
 import pandas as pd
 
-from ..constants import mZ
+from nsbi.physics.constants import mZ
 from .zz4l import LeptonPtEtaCut
 from .zz2l2v import MTZZMinCut, ZMassWindow, MinMETCut, MinDPhillMETCut, MaxDRllCut
 
@@ -16,7 +16,6 @@ class WWLVLV():
         self.neutrino_indices = neutrino_indices
 
     def __call__(self, kinematics):
-        from ..constants import mZ
 
         l1 = vector.array({'px': kinematics[f'p{self.lepton_indices[0]}_px'], 'py': kinematics[f'p{self.lepton_indices[0]}_py'], 'pz': kinematics[f'p{self.lepton_indices[0]}_pz'], 'E': kinematics[f'p{self.lepton_indices[0]}_E']})
         l2 = vector.array({'px': kinematics[f'p{self.lepton_indices[1]}_px'], 'py': kinematics[f'p{self.lepton_indices[1]}_py'], 'pz': kinematics[f'p{self.lepton_indices[1]}_pz'], 'E': kinematics[f'p{self.lepton_indices[1]}_E']})
@@ -27,7 +26,7 @@ class WWLVLV():
         indices = np.argsort(pt, axis=1)[:,::-1]
         leptons = np.array([l1,l2]).T
         leptons_sorted = vector.array(np.take_along_axis(leptons, indices, axis=1), dtype=[("px", np.float32), ("py", np.float32), ("pz", np.float32), ("E", np.float32)])
-        
+
         results = {'l1_pt': leptons_sorted[:,0].pt, 'l1_eta': leptons_sorted[:,0].eta, 'l1_phi': leptons_sorted[:,0].phi, 'l1_energy': leptons_sorted[:,0].energy,
                    'l2_pt': leptons_sorted[:,1].pt, 'l2_eta': leptons_sorted[:,1].eta, 'l2_phi': leptons_sorted[:,1].phi, 'l2_energy': leptons_sorted[:,1].energy}
 

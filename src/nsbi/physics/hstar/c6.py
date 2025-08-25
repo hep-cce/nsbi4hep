@@ -1,7 +1,7 @@
 import numpy as np
 from numpy.polynomial.polynomial import polyval
 
-from ..simulation import mcfm
+from nsbi.physics.simulation import mcfm
 
 class Modifier():
 
@@ -30,14 +30,14 @@ class Modifier():
     # Solve batched linear systems using np.linalg.solve with broadcasting
     # Broadcasting the Vandermonde matrix to all events
     self.coefficients = np.linalg.solve(V[np.newaxis, :, :], rhs[:, :, np.newaxis]).squeeze(-1)
-    
+
   # def modify(self, cH):
 
   #   if np.isscalar(cH):
   #     c6 = np.array([cH])
 
   #   # Evaluate the polynomial at c6 for each row
-  #   wt_c6 = self.events.weights.to_numpy()[:,np.newaxis] * np.apply_along_axis(lambda x: np.polyval(x, cH), 1, self.coefficients[:, ::-1]) 
+  #   wt_c6 = self.events.weights.to_numpy()[:,np.newaxis] * np.apply_along_axis(lambda x: np.polyval(x, cH), 1, self.coefficients[:, ::-1])
 
   #   # Normalize over events for each c6 (axis=0: sum over events)
   #   prob_c6 = wt_c6 / np.sum(wt_c6, axis=0, keepdims=True)
