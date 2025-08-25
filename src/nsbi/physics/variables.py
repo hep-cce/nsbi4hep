@@ -24,6 +24,6 @@ eft_terms = [
     [0, 1, 1],
 ]
 
-c6_degree = max([ctup[0] for ctup in eft_terms])
-ct_degree = max([ctup[1] for ctup in eft_terms])
-cg_degree = max([ctup[2] for ctup in eft_terms])
+c6_degree = max(ctup[0] for ctup in eft_terms)
+ct_degree = max(ctup[1] for ctup in eft_terms)
+cg_degree = max(ctup[2] for ctup in eft_terms)

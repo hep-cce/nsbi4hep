@@ -1,10 +1,9 @@
 import torch
 from torch import nn
 import lightning as L
-import numpy as np
+
 
 class ALICE(L.LightningModule):
-
     def __init__(self, n_features, n_layers, n_nodes, learning_rate):
         super().__init__()
         self.save_hyperparameters()
@@ -22,6 +21,7 @@ class ALICE(L.LightningModule):
             if isinstance(m, nn.Linear):
                 torch.nn.init.xavier_uniform_(m.weight)
                 m.bias.data.fill_(0.01)
+
         self.model.apply(init_weights)
 
         self.loss_fn = nn.BCELoss()
@@ -44,7 +44,7 @@ class ALICE(L.LightningModule):
         loss = self.loss_fn(y_hat, y)
         self.log("val_loss", loss, on_step=False, on_epoch=True, prog_bar=False)
         return loss
-    
+
     def predict_step(self, batch, batch_idx):
         x, y = batch
         return self.model(x).view(-1)
