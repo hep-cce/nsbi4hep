@@ -106,7 +106,7 @@ def from_csv(
                     Number of rows to read from the CSV file. If None, all rows are read.
     """
 
-    file_paths = Path(file_path).rglob()
+    file_paths = Path(file_path).rglob("*.csv") if Path(file_path).is_dir() else [file_path]
     dfs = [pd.read_csv(fp, nrows=n_rows) for fp in file_paths]
     df = pd.concat(dfs, ignore_index=True)
 

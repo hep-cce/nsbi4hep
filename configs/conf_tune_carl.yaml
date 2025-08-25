@@ -1,0 +1,86 @@
+hpo_tune:
+  resources:
+    gpu_per_trial: 1
+    cpu_per_trial: 4
+    num_gpus: 4
+    num_nodes: 10
+
+  search_space:
+    n_layers: "randint:5,15"
+    n_nodes: "qrandint:100,1000,1000"
+    learning_rate: "loguniform:1e-5,3e-2"
+
+  do_ensemble: false
+  monitor: ["val_loss", "l1_energy_ws"] # visually inspected calibrate curve.
+
+datamodule:
+  _target_: nsbi.datasets.balanced.BalancedDataModule
+  features:
+    [
+      "l1_pt",
+      "l1_eta",
+      "l1_phi",
+      "l1_energy",
+      "l2_pt",
+      "l2_eta",
+      "l2_phi",
+      "l2_energy",
+      "l3_pt",
+      "l3_eta",
+      "l3_phi",
+      "l3_energy",
+      "l4_pt",
+      "l4_eta",
+      "l4_phi",
+      "l4_energy",
+    ]
+  numerator_events: "/global/cfs/cdirs/m3443/data/nsbi_tutorial_data/h4l_data/sm/ggzz4l_bkg.csv"
+  denominator_events: "/global/cfs/cdirs/m3443/data/nsbi_tutorial_data/h4l_data/sm/ggzz4l_sbi.csv"
+  sample_size: 10_000_000
+  batch_size: 2048
+  data_dir: "scaled_data/"
+
+model:
+  _target_: nsbi.models.carl.CARL
+  n_features: 16
+  n_layers: 4
+  n_nodes: 100
+  learning_rate: 0.001
+
+seed: 42
+do_hpo_tune: false
+stage: "fit"
+do_compile: false
+compile_kwargs:
+  backend: inductor
+  dynamic: true
+  mode: max-autotune
+
+logger:
+  csv:
+    _target_: lightning.pytorch.loggers.CSVLogger
+    save_dir: "./"
+
+trainer:
+  _target_: lightning.Trainer
+  devices: 1
+  max_epochs: 50
+
+callbacks:
+  model_checkpoint:
+    _target_: lightning.pytorch.callbacks.ModelCheckpoint
+    monitor: "val_loss"
+    mode: "min"
+    save_top_k: 5
+    filename: "{epoch:02d}-{val_loss:.2f}"
+  model_checkpoint2:
+    _target_: lightning.pytorch.callbacks.ModelCheckpoint
+    monitor: "train_loss"
+    mode: "min"
+    save_top_k: 1
+    filename: "{epoch:02d}-{train_loss:.2f}"
+  early_stopping:
+    _target_: lightning.pytorch.callbacks.EarlyStopping
+    monitor: "val_loss"
+    patience: 20
+    mode: "min"

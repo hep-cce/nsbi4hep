@@ -1,5 +1,6 @@
 import os
 import pickle
+from pathlib import Path
 
 import numpy as np
 from sklearn.preprocessing import StandardScaler
@@ -16,7 +17,6 @@ class BalancedDataModule(L.LightningDataModule):
         self,
         numerator_events: str = "",
         denominator_events: str = "",
-        analysis="h4l",
         features=(
             "cth_star",
             "cth_1",
@@ -32,6 +32,7 @@ class BalancedDataModule(L.LightningDataModule):
         batch_size: int = 32,
         random_state: int | None = None,
         data_dir: str = "./",
+        return_kin_val: bool = False,
     ):
         super().__init__()
 
@@ -47,6 +48,8 @@ class BalancedDataModule(L.LightningDataModule):
 
         self.data_dir = data_dir
         self.scaler = StandardScaler()
+
+        self.return_kin_val = return_kin_val
 
     def prepare_data(self):
         events_numerator = mcfm.from_csv(
@@ -97,6 +100,9 @@ class BalancedDataModule(L.LightningDataModule):
             pickle.dump(events_denominator_test, f)
 
     def setup(self, stage: str):
+        if not (Path(self.data_dir) / "scaler.pkl").exists():
+            self.prepare_data()
+
         if stage == "fit":
             with open(os.path.join(self.data_dir, "scaler.pkl"), "rb") as f:
                 self.scaler = pickle.load(f)
@@ -122,7 +128,7 @@ class BalancedDataModule(L.LightningDataModule):
                 self.features,
                 scaler=self.scaler,
                 random_state=self.random_state,
-                return_kin=True,
+                return_kin=self.return_kin_val,
             )
 
         elif stage == "test":

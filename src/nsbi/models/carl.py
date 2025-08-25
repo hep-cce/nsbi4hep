@@ -3,7 +3,6 @@ from torch import nn
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 import lightning as L
-from lightning.pytorch.callbacks import ModelCheckpoint, EarlyStopping
 
 
 class CARL(L.LightningModule):
@@ -31,28 +30,6 @@ class CARL(L.LightningModule):
                 m.bias.data.fill_(0.0)
 
         self.model.apply(xavier_init)
-
-    def configure_callbacks(self):
-        callbacks = super().configure_callbacks()
-
-        callbacks.append(
-            ModelCheckpoint(
-                monitor="val_loss", mode="min", save_top_k=5, filename="{epoch:02d}-{val_loss:.2f}"
-            )
-        )
-
-        callbacks.append(
-            ModelCheckpoint(
-                monitor="train_loss",
-                mode="min",
-                save_top_k=1,
-                filename="{epoch:02d}-{train_loss:.2f}",
-            )
-        )
-
-        callbacks.append(EarlyStopping(monitor="val_loss", patience=20, mode="min"))
-
-        return callbacks
 
     def forward(self, x):
         return self.model(x)
