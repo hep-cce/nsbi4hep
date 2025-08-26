@@ -185,9 +185,6 @@ def main_function(cfg: DictConfig) -> None:
     else:
         raise ValueError(f"Unknown stage: {stage}")
 
-    if cfg.trainer.accelerator == "gpu":
-        trainer.print(torch.cuda.memory_summary())
-
 
 def ray_train(config: dict, cfg: DictConfig) -> None:
     """Function to be used by Ray Trainer to launch training.
@@ -220,6 +217,9 @@ def main_tune_function(cfg: DictConfig) -> None:
     # set seed for random number generators in pytorch, numpy and python.random
     if cfg.get("seed"):
         L.seed_everything(cfg.seed)
+
+    # disable progress bar for HPO tuning.
+    cfg.trainer.enable_progress_bar = False
 
     scheduler = hydra.utils.instantiate(cfg.hpo_tune.get("scheduler"))
     ckpt_callback = cfg.callbacks.model_checkpoint
