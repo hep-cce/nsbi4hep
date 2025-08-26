@@ -41,7 +41,7 @@ class CARL(L.LightningModule):
         w = w.flatten()
         loss = (self.loss_fn(y_hat, y) * w).sum() / w.sum()
         self.log("train_loss", loss, on_step=False, on_epoch=True, prog_bar=False, sync_dist=True)
-        return loss
+        return {"loss": loss}
 
     def validation_step(self, batch, batch_idx):
         x, y, w = batch
@@ -50,7 +50,7 @@ class CARL(L.LightningModule):
         w = w.flatten()
         loss = (self.loss_fn(y_hat, y) * w).sum() / w.sum()
         self.log("val_loss", loss, on_step=False, on_epoch=True, prog_bar=False, sync_dist=True)
-        return loss
+        return {"loss": loss, "y_hat": y_hat, "y": y, "w": w, "kin": x}
 
     def predict_step(self, batch, batch_idx):
         x = batch if not isinstance(batch, (tuple, list)) else batch[0]

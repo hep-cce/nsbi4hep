@@ -13,7 +13,7 @@ def _try_num(x: str):
 
 
 def parse_dist(spec: str):
-    kind, _, args = spec.partition(":")
+    kind, args = spec.split(":")
     parts = [p.strip() for p in args.split(",") if p.strip() != ""]
     k = kind.lower()
     if k == "randint":

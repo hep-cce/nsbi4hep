@@ -189,6 +189,23 @@ def main_function(cfg: DictConfig) -> None:
         trainer.print(torch.cuda.memory_summary())
 
 
+def ray_train(config: dict, cfg: DictConfig) -> None:
+    """Function to be used by Ray Trainer to launch training.
+
+    Args:
+        config (dict): Configuration dictionary for HPO.
+        cfg (DictConfig): Original configuration composed by Hydra.
+    """
+    # update cfg with config assuming all config keys are in cfg.model.
+    for k, v in config.items():
+        if k in cfg.model:
+            cfg.model[k] = v
+        else:
+            log.warning("Key {} not found in cfg.model. Skipping update.", k)
+    # Call the main function
+    main_function(cfg)
+
+
 def main_tune_function(cfg: DictConfig) -> None:
     """Hyperparameter tuning with Ray Tune.
 
@@ -199,22 +216,14 @@ def main_tune_function(cfg: DictConfig) -> None:
         cfg (DictConfig): Configuration composed by Hydra.
     """
     from ray import tune
-    from ray.train import ScalingConfig
-    from ray.train.torch import TorchTrainer
 
     # set seed for random number generators in pytorch, numpy and python.random
     if cfg.get("seed"):
         L.seed_everything(cfg.seed)
 
     scheduler = hydra.utils.instantiate(cfg.hpo_tune.get("scheduler"))
-
-    scaling_config = ScalingConfig(
-        num_workers=cfg.hpo_tune.get("num_workers", 1),
-        use_gpu=cfg.trainer.get("accelerator", "") == "gpu",
-        resources_per_worker=cfg.hpo_tune.get("resources_per_worker", None),
-    )
     ckpt_callback = cfg.callbacks.model_checkpoint
-    ray_trainer = TorchTrainer(main_function, scaling_config=scaling_config)
+    trainable = tune.with_parameters(ray_train, cfg=cfg)
     search_space = cfg.hpo_tune.get("search_space", {})
     params_space = {}
     for k, v in search_space.items():
@@ -223,9 +232,12 @@ def main_tune_function(cfg: DictConfig) -> None:
         else:
             params_space[k] = v
 
+    # printout the param space.
+    log.info("Hyperparameter search space: {}", params_space)
+
     tuner = tune.Tuner(
-        ray_trainer,
-        param_space={"config": search_space},
+        tune.with_resources(trainable, resources={"cpu": 2, "gpu": 1}),
+        param_space=params_space,
         tune_config=tune.TuneConfig(
             scheduler=scheduler,
             num_samples=cfg.hpo_tune.get("num_samples", 1),

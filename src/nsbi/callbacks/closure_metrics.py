@@ -1,12 +1,12 @@
 from typing import Any
 import torch
-import pytorch_lightning as pl
+from lightning.pytorch.callbacks import Callback
 
 from nsbi.tools.metrics import ReweightingClosureMetric
 
 
-class ClosureMetricsCallback(pl.Callback):
-    def __init__(self, feature_names, chi2_metrics_fn, ws_metrics_fn):
+class ClosureMetricsCallback(Callback):
+    def __init__(self, feature_names):
         super().__init__()
         self.feature_names = feature_names
 
@@ -26,13 +26,13 @@ class ClosureMetricsCallback(pl.Callback):
             storage.append(outputs)
 
     def _compute_and_log(self, stage, storage, pl_module):
-        if not storage:
+        if not storage or len(storage) < 1 or "kin" not in storage[0]:
             return
 
-        kin = torch.cat([out["kin"] for out in storage])
-        w = torch.cat([out["w"] for out in storage])
-        y = torch.cat([out["y"] for out in storage])
-        y_hat = torch.cat([out["y_hat"] for out in storage])
+        kin = torch.cat([out["kin"] for out in storage]).cpu().detach()
+        w = torch.cat([out["w"] for out in storage]).cpu().detach()
+        y = torch.cat([out["y"] for out in storage]).cpu().detach()
+        y_hat = torch.cat([out["y_hat"] for out in storage]).cpu().detach()
 
         w_base = w * (1.0 - y)
         w_truth = w * y
@@ -56,14 +56,14 @@ class ClosureMetricsCallback(pl.Callback):
         storage.clear()
 
     def on_validation_batch_end(
-        self, trainer, pl_module, outputs, batch, batch_idx, dataloader_idx
+        self, trainer, pl_module, outputs, batch, batch_idx, dataloader_idx=0
     ):
         self._collect_outputs(self._validation_outputs, outputs)
 
     def on_validation_epoch_end(self, trainer, pl_module):
         self._compute_and_log("val", self._validation_outputs, pl_module)
 
-    def on_test_batch_end(self, trainer, pl_module, outputs, batch, batch_idx, dataloader_idx):
+    def on_test_batch_end(self, trainer, pl_module, outputs, batch, batch_idx, dataloader_idx=0):
         self._collect_outputs(self._test_outputs, outputs)
 
     def on_test_epoch_end(self, trainer, pl_module):

@@ -16,13 +16,10 @@ hpo_tune:
     reduction_factor: 2
 
   num_workers: 4
-  resources_per_worker:
-    cpu: 4
-    gpu: 1
 
   search_space:
     n_layers: "randint:5,15"
-    n_nodes: "qrandint:100,1000,1000"
+    n_nodes: "qrandint:100,1000,4"
     learning_rate: "loguniform:1e-5,3e-2"
 
   do_ensemble: false
@@ -53,7 +50,7 @@ datamodule:
   denominator_events: "/global/cfs/cdirs/m3443/data/nsbi_tutorial_data/h4l_data/sm/ggzz4l_sbi.csv"
   sample_size: 10_000_000
   batch_size: 2048
-  data_dir: "scaled_data/"
+  data_dir: "/pscratch/sd/x/xju/code/higgs-offshell-interpretation/scaled_data"
 
 model:
   _target_: nsbi.models.carl.CARL
@@ -68,9 +65,9 @@ logger:
     save_dir: "./"
 
 trainer:
-  _target_: lightning.Trainer
+  _target_: lightning.pytorch.Trainer
   devices: 1
-  max_epochs: 50
+  max_epochs: 5
 
 callbacks:
   model_checkpoint:
@@ -91,7 +88,7 @@ callbacks:
     patience: 20
     mode: "min"
   nsbi_closure:
-    _target_: nsbi.callbacks.ClosureMetricsCallback
+    _target_: nsbi.callbacks.closure_metrics.ClosureMetricsCallback
     feature_names:
       [
         "l1_pt",

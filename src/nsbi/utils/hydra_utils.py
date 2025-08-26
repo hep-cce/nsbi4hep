@@ -32,7 +32,7 @@ def instantiate_loggers(logger_cfg: DictConfig) -> list[Logger]:
 
     for lg_conf in logger_cfg.values():
         if isinstance(lg_conf, DictConfig) and "_target_" in lg_conf:
-            log.info("Instantiating logger <%s>", lg_conf._target_)
+            log.info("Instantiating logger <{}>", lg_conf._target_)
             logger.append(hydra.utils.instantiate(lg_conf))
 
     return logger
@@ -53,7 +53,7 @@ def task_wrapper(task_func: Callable) -> Callable:
     def wrap(cfg: DictConfig):
         """Wrapper function."""
         outdir = Path(cfg.paths.output_dir)
-        log.info("Output dir: %s", outdir)
+        log.info("Output dir: {}", outdir)
         Path(outdir / "tensorboard").mkdir(parents=True, exist_ok=True)
 
         # execute the task
@@ -69,7 +69,7 @@ def task_wrapper(task_func: Callable) -> Callable:
             save_file(path, content)  # save task execution time (even if exception occurs)
             close_loggers()  # close loggers (even if exception occurs so multirun won't fail)
 
-        log.info("Output dir: %s", cfg.paths.output_dir)
+        log.info("Output dir: {}", cfg.paths.output_dir)
 
     return wrap
 
@@ -103,7 +103,7 @@ def instantiate_callbacks(callbacks_cfg: DictConfig) -> list[Callback]:
     for cb_conf in callbacks_cfg.values():
         if isinstance(cb_conf, DictConfig) and "_target_" in cb_conf:
             target = cb_conf._target_
-            log.info("Instantiating callback <%s>", target)
+            log.info("Instantiating callback <{}>", target)
 
             # Skip rank-zero-only callbacks on non-zero ranks
             if not is_rank_zero() and any(
@@ -114,7 +114,7 @@ def instantiate_callbacks(callbacks_cfg: DictConfig) -> list[Callback]:
                     "EarlyStopping",
                 ]
             ):
-                log.info("Skipping callback <%s> on non-zero rank", target)
+                log.info("Skipping callback <{}> on non-zero rank", target)
                 continue
             callbacks.append(hydra.utils.instantiate(cb_conf))
 
