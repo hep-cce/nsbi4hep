@@ -1,4 +1,3 @@
-import operator
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -19,11 +18,6 @@ from nsbi.utils.lightning_utils import find_latest_checkpoint
 from nsbi.utils.ray_utils import parse_dist
 
 from loguru import logger as log
-
-OmegaConf.register_new_resolver("eval", eval)
-OmegaConf.register_new_resolver("sum", operator.add)
-OmegaConf.register_new_resolver("prod", operator.mul)
-OmegaConf.register_new_resolver("gen_list", lambda x, y: [x] * y)
 
 
 def main_function(cfg: DictConfig) -> None:
@@ -205,7 +199,7 @@ def main_tune_function(cfg: DictConfig) -> None:
         cfg (DictConfig): Configuration composed by Hydra.
     """
     from ray import tune
-    from ray.train import RunConfig, ScalingConfig, CheckpointConfig
+    from ray.train import ScalingConfig
     from ray.train.torch import TorchTrainer
 
     # set seed for random number generators in pytorch, numpy and python.random
@@ -220,15 +214,7 @@ def main_tune_function(cfg: DictConfig) -> None:
         resources_per_worker=cfg.hpo_tune.get("resources_per_worker", None),
     )
     ckpt_callback = cfg.callbacks.model_checkpoint
-    run_config = RunConfig(
-        checkpoint_config=CheckpointConfig(
-            checkpoint_score_attribute=ckpt_callback.monitor,
-            num_to_keep=ckpt_callback.save_top_k,
-            checkpoint_score_order=ckpt_callback.mode,
-            checkpoint_frequency=1,
-        ),
-    )
-    ray_trainer = TorchTrainer(main_function, scaling_config=scaling_config, run_config=run_config)
+    ray_trainer = TorchTrainer(main_function, scaling_config=scaling_config)
     search_space = cfg.hpo_tune.get("search_space", {})
     params_space = {}
     for k, v in search_space.items():
@@ -287,7 +273,12 @@ def main() -> None:
         if not isinstance(cfg, DictConfig):
             raise TypeError("Configuration must be a DictConfig object.")
 
-        main_function(cfg)
+        if cfg.get("do_hpo_tune", False):
+            log.info("Starting hyperparameter tuning with Ray Tune...")
+            main_tune_function(cfg)
+        else:
+            log.info("Starting main training/evaluation function...")
+            main_function(cfg)
     else:
         log.error("Configuration file {} does not exist.", config_path)
         raise FileNotFoundError(f"Configuration file {config_path} does not exist.")
