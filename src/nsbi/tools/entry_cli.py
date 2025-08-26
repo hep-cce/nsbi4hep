@@ -16,6 +16,7 @@ if TYPE_CHECKING:
 
 from nsbi.utils import hydra_utils as utils
 from nsbi.utils.lightning_utils import find_latest_checkpoint
+from nsbi.utils.ray_utils import parse_dist
 
 from loguru import logger as log
 
@@ -111,6 +112,19 @@ def main_function(cfg: DictConfig) -> None:
                     ckpt_filename = f"best-{filename_suffix}-" + "{epoch}-{step}"
                     ckpt_filename = ckpt_filename.replace("/", "-")
                     callback_config.filename = ckpt_filename
+
+    # add TuneReportCallback if using Ray Tune
+    if cfg.get("do_hpo_tune", False):
+        log.info("Adding Ray Tune callback to report metrics to Ray Tune...")
+
+        if "callbacks" not in cfg:
+            cfg.callbacks = {}
+        cfg.callbacks["ray_tune_report_callback"] = {
+            "_target_": "ray.tune.integration.pytorch_lightning.TuneReportCallback",
+            "metrics": {"val_loss": "val_loss", "l1_energy_ws": "l1_energy_ws"},
+            "on": "validation_end",
+        }
+        log.info("Ray Tune callback added.")
 
     log.info("Instantiating callbacks...")
     callbacks: list[Callback] = utils.instantiate_callbacks(cfg.get("callbacks"))
@@ -216,6 +230,12 @@ def main_tune_function(cfg: DictConfig) -> None:
     )
     ray_trainer = TorchTrainer(main_function, scaling_config=scaling_config, run_config=run_config)
     search_space = cfg.hpo_tune.get("search_space", {})
+    params_space = {}
+    for k, v in search_space.items():
+        if isinstance(v, str):
+            params_space[k] = parse_dist(v)
+        else:
+            params_space[k] = v
 
     tuner = tune.Tuner(
         ray_trainer,
