@@ -10,12 +10,32 @@
 
 ## Setup
 
-The Python virtual environment can be setup as follows:
+### Installing `poetry`
+To install [`poetry`](https://python-poetry.org/docs/), you first need to install `pipx` in your `$HOME` directory:
 
-```sh
-pip install -r requirements
-pip install -e .
+```bash
+/global/common/software/nersc/pe/conda-envs/24.1.0/python-3.11/nersc-python/bin/python -m pip install --user pipx
 ```
+
+Then, `poetry` can be installed with the following:
+
+```bash
+pipx install poetry
+```
+
+Lastly, you can use the python installed at NERSC:
+
+```bash
+poetry env use /global/common/software/nersc/pe/conda-envs/24.1.0/python-3.11/nersc-python/bin/python
+```
+
+### Install the project
+You can now set up the project's environment by navigating to your cloned repository's directory, installing the environment dependencies, and activating the environment:
+
+```bash
+poetry install --with dev,docs
+
+eval $(poetry env activate)
 
 ## Overview of packages in this repo
 
