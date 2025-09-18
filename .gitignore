@@ -1,25 +1,20 @@
 __pycache__/
 *.egg-info/
 
-venv*/
-
+data/
 run/
-inference/
-job/
+jobs/
 
-notebooks/.ipynb_checkpoints/
 **/lightning_logs/
+**/checkpoints/
+**/.ipynb_checkpoints/
 
-jobs/*
-jobs/*/
-
+*.pkl
+*.sif
 *.dat
 *.csv
 *.pdf
 *.out.*
 *.err.*
-*.keras
-*history*.txt
-*.tf/
-*.slurm
-*.config
+*.out
+*.err
