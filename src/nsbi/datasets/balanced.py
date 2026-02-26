@@ -2,12 +2,12 @@ import os
 import pickle
 from pathlib import Path
 
+import lightning as L
 import numpy as np
+import torch
 from sklearn.preprocessing import StandardScaler
 from sklearn.utils import shuffle
-import torch
 from torch.utils.data import DataLoader, Dataset
-import lightning as L
 
 from nsbi.physics.simulation import mcfm
 
@@ -59,9 +59,7 @@ class BalancedDataModule(L.LightningDataModule):
             cross_section=None, file_path=self.denominator_file, kinematics=self.features
         )
 
-        events_numerator = events_numerator.sample(
-            self.sample_size, random_state=self.random_state
-        )
+        events_numerator = events_numerator.sample(self.sample_size, random_state=self.random_state)
         events_denominator = events_denominator.sample(
             self.sample_size, random_state=self.random_state
         )

@@ -1,9 +1,9 @@
-import numpy as np
-from scipy.stats import wasserstein_distance
-
-import matplotlib.pyplot as plt
 import os
 import pathlib
+
+import matplotlib.pyplot as plt
+import numpy as np
+from scipy.stats import wasserstein_distance
 
 
 # remove?
@@ -80,9 +80,7 @@ def plot_closure_grid(
         # Main plot
         ax_main.step(centers, hist_base, where="mid", label="BKG", color="black", linestyle="--")
         ax_main.step(centers, hist_truth, where="mid", label="BKG->SBI (truth)", color="blue")
-        ax_main.step(
-            centers, hist_pred, where="mid", label="BKG->SBI (NN prediction)", color="red"
-        )
+        ax_main.step(centers, hist_pred, where="mid", label="BKG->SBI (NN prediction)", color="red")
         if log_scale:
             ax_main.set_yscale("log")
         ax_main.set_title(f"{title_prefix} {name}")
@@ -122,7 +120,7 @@ class ReweightingClosureMetric:
 
         else:
             self.binning = []
-            for obs in self.observables:
+            for _obs in self.observables:
                 self.binning.append(None)
 
         self.metric = metric

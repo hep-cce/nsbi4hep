@@ -1,17 +1,15 @@
 import pickle
 
-from nsbi.physics.simulation import mcfm, msq
-from nsbi.physics.analysis import zz4l
-from nsbi.physics.hstar import c6
-
-from sklearn.preprocessing import StandardScaler
-
+import lightning as L
 import numpy as np
 import pandas as pd
-
-import lightning as L
-from torch.utils.data import DataLoader, Dataset
 import torch
+from sklearn.preprocessing import StandardScaler
+from torch.utils.data import DataLoader, Dataset
+
+from nsbi.physics.analysis import zz4l
+from nsbi.physics.hstar import c6
+from nsbi.physics.simulation import mcfm, msq
 
 
 class AliceDataModule(L.LightningDataModule):

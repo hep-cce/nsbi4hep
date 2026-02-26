@@ -1,9 +1,8 @@
+import lightning as L
 import torch
+from lightning.pytorch.callbacks import EarlyStopping, ModelCheckpoint
 from torch import nn
 from torch.optim.lr_scheduler import ReduceLROnPlateau
-
-import lightning as L
-from lightning.pytorch.callbacks import ModelCheckpoint, EarlyStopping
 
 
 class TAYLR(L.LightningModule):

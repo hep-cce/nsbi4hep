@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
-import os
-import json
 import argparse
+import json
+import os
+import pathlib
+
 import numpy as np
 import pandas as pd
 
+from nsbi.physics.analysis import wwlvlv, zz2l2v, zz4l
 from nsbi.physics.simulation import mcfm
-from nsbi.physics.analysis import zz4l, zz2l2v, wwlvlv
-import pathlib
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Merge MCFM event CSVs from multiple processes.")

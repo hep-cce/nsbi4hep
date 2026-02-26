@@ -1,6 +1,6 @@
-import torch
 import lightning as L
 import tools.metrics as tools
+import torch
 
 
 class monitored_model(L.LightningModule):
@@ -59,13 +59,13 @@ class monitored_model(L.LightningModule):
 
         # compute and log closure metrics
         closure_chi2 = self.chi2_metrics(kin, w_pred, w_truth, w_base)
-        for idx, (k, v) in enumerate(closure_chi2.items()):
+        for idx, (_k, v) in enumerate(closure_chi2.items()):
             name = self.feature_names[idx]
             self.log(f"{name}_chi2", v, prog_bar=False, sync_dist=True)
 
         closure_ws = self.ws_metrics(kin, w_pred, w_truth, w_base)
 
-        for idx, (k, v) in enumerate(closure_ws.items()):
+        for idx, (_k, v) in enumerate(closure_ws.items()):
             name = self.feature_names[idx]
             self.log(f"{name}_ws", v, prog_bar=False, sync_dist=True)
 
@@ -80,13 +80,15 @@ class monitored_model(L.LightningModule):
         loss = (self.base_module.loss_fn(y_hat, y) * w).sum() / w.sum()
         self.log("val_loss", loss, on_step=False, on_epoch=True, prog_bar=False, sync_dist=True)
 
-        self._validation_outputs.append({
-            "val_loss": loss,
-            "kin": kin.detach().cpu(),
-            "y_hat": y_hat.detach().cpu(),
-            "y": y.detach().cpu(),
-            "w": w.detach().cpu(),
-        })
+        self._validation_outputs.append(
+            {
+                "val_loss": loss,
+                "kin": kin.detach().cpu(),
+                "y_hat": y_hat.detach().cpu(),
+                "y": y.detach().cpu(),
+                "w": w.detach().cpu(),
+            }
+        )
 
         return loss
 
