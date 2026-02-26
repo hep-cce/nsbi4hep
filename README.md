@@ -1,32 +1,12 @@
-# Higgs off-shell interpretation
+# Scaling Neural Simulation-Based Inference at High Performance Computing Centers for LHC analysis
 
-## Requirements
 
-- MCFM datasets:
-    - $gg\to ZZ$ continuum background
-    - $gg\to h^{\ast}\to ZZ$ signal
-    - $(gg\to h^{\ast}\to ZZ) \times (gg\to ZZ)$ signal-background interference
-    - $gg(\to h^{\ast})\to ZZ$ signal+background+interference
-
-## Setup
-
-### Installing `poetry`
-To install [`poetry`](https://python-poetry.org/docs/), you first need to install `pipx` in your `$HOME` directory:
+## Installation
+We use `uv` to manage our Python environment and dependencies.
 
 ```bash
-/global/common/software/nersc/pe/conda-envs/24.1.0/python-3.11/nersc-python/bin/python -m pip install --user pipx
-```
-
-Then, `poetry` can be installed with the following:
-
-```bash
-pipx install poetry
-```
-
-Lastly, you can use the python installed at NERSC:
-
-```bash
-poetry env use /global/common/software/nersc/pe/conda-envs/24.1.0/python-3.11/nersc-python/bin/python
+uv venv
+uv sync --with dev,docs
 ```
 
 ### Install the project
