@@ -1,17 +1,17 @@
 import os
 import time
+from collections.abc import Callable
 from importlib.util import find_spec
 from pathlib import Path
-from typing import Callable
 
 import hydra
 from lightning.pytorch.callbacks import Callback
 from lightning.pytorch.loggers.logger import Logger
 from lightning.pytorch.utilities import rank_zero_only
-from omegaconf import DictConfig
 
 # local imports
 from loguru import logger as log
+from omegaconf import DictConfig
 
 
 def is_rank_zero() -> bool:

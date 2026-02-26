@@ -1,6 +1,6 @@
+import lightning as L
 import torch
 from torch import nn
-import lightning as L
 
 
 class ALICE(L.LightningModule):

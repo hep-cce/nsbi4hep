@@ -1,13 +1,12 @@
 import pickle
 
-from nsbi.physics.simulation import mcfm, msq
-from nsbi.physics.hstar import eft
-
-from sklearn.preprocessing import StandardScaler
-
 import lightning as L
-from torch.utils.data import DataLoader, Dataset
 import torch
+from sklearn.preprocessing import StandardScaler
+from torch.utils.data import DataLoader, Dataset
+
+from nsbi.physics.hstar import eft
+from nsbi.physics.simulation import mcfm, msq
 
 
 class CoefficientDataModule(L.LightningDataModule):

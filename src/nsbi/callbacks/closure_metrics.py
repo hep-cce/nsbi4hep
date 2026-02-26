@@ -1,4 +1,5 @@
 from typing import Any
+
 import torch
 from lightning.pytorch.callbacks import Callback
 
@@ -42,13 +43,13 @@ class ClosureMetricsCallback(Callback):
 
         # compute and log closure metrics
         closure_chi2 = self.chi2_metrics(kin, w_pred, w_truth, w_base)
-        for idx, (k, v) in enumerate(closure_chi2.items()):
+        for idx, (_, v) in enumerate(closure_chi2.items()):
             name = self.feature_names[idx]
             pl_module.log(f"{stage}_{name}_chi2", v, prog_bar=False, sync_dist=True)
 
         closure_ws = self.ws_metrics(kin, w_pred, w_truth, w_base)
 
-        for idx, (k, v) in enumerate(closure_ws.items()):
+        for idx, (_, v) in enumerate(closure_ws.items()):
             name = self.feature_names[idx]
             pl_module.log(f"{stage}_{name}_ws", v, prog_bar=False, sync_dist=True)
 

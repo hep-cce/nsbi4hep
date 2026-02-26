@@ -6,18 +6,17 @@ import lightning as L
 import torch
 from omegaconf import DictConfig, OmegaConf
 
-
 if TYPE_CHECKING:
     from lightning.pytorch import Trainer
     from lightning.pytorch.callbacks import Callback
     from lightning.pytorch.core import LightningDataModule, LightningModule
     from lightning.pytorch.loggers.logger import Logger
 
+from loguru import logger as log
+
 from nsbi.utils import hydra_utils as utils
 from nsbi.utils.lightning_utils import find_latest_checkpoint
 from nsbi.utils.ray_utils import parse_dist
-
-from loguru import logger as log
 
 
 def main_function(cfg: DictConfig) -> None:
