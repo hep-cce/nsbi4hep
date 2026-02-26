@@ -129,7 +129,7 @@ def _safe_get_nested(config, path: str, default=None):
         for key in keys:
             value = value[key]
         return value
-    except KeyError, TypeError:
+    except (KeyError, TypeError):
         return default
 
 
