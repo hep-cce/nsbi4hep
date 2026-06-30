@@ -105,15 +105,11 @@ def instantiate_callbacks(callbacks_cfg: DictConfig) -> list[Callback]:
             target = cb_conf._target_
             log.info("Instantiating callback <{}>", target)
 
-            # Skip rank-zero-only callbacks on non-zero ranks
-            if not is_rank_zero() and any(
-                name in target
-                for name in [
-                    "RichProgressBar",
-                    "ModelCheckpoint",
-                    "EarlyStopping",
-                ]
-            ):
+            # RichProgressBar is display-only; skip on non-zero ranks to avoid duplicate output.
+            # ModelCheckpoint and EarlyStopping must run on ALL ranks — Lightning 2.x uses
+            # internal barriers/broadcasts inside them to sync save/stop decisions, so
+            # omitting them on rank 1 causes a DDP deadlock.
+            if not is_rank_zero() and "RichProgressBar" in target:
                 log.info("Skipping callback <{}> on non-zero rank", target)
                 continue
             callbacks.append(hydra.utils.instantiate(cb_conf))

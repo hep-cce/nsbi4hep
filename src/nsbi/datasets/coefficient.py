@@ -5,8 +5,8 @@ import torch
 from sklearn.preprocessing import StandardScaler
 from torch.utils.data import DataLoader, Dataset
 
-from nsbi.physics.hstar import eft
-from nsbi.physics.simulation import mcfm, msq
+from nsbi.examples.physics.hstar import eft
+from nsbi.examples.physics.simulation import mcfm, msq
 
 
 class CoefficientDataModule(L.LightningDataModule):

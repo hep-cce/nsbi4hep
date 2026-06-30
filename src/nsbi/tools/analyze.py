@@ -7,8 +7,8 @@ import pathlib
 import numpy as np
 import pandas as pd
 
-from nsbi.physics.analysis import wwlvlv, zz2l2v, zz4l
-from nsbi.physics.simulation import mcfm
+from nsbi.examples.physics.analysis import wwlvlv, zz2l2v, zz4l
+from nsbi.examples.physics.simulation import mcfm
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Merge MCFM event CSVs from multiple processes.")
