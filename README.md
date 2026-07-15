@@ -14,3 +14,8 @@ source .venv/bin/activate
 ```bash
 uv run nsbi --help
 ```
+
+
+#### References
+* A. Held, J. Sandesara, "Introduction to NSBI", [link](https://indico.cern.ch/event/1656822/contributions/6963531/attachments/3277049/5855409/20260519_SBI_intro.pdf)
+* ATLAS Collaboration, "An implementation of NSBI in ATLAS", [arXiv:2412.01600](https://arxiv.org/abs/2412.01600)
