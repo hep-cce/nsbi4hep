@@ -7,9 +7,9 @@ import torch
 from sklearn.preprocessing import StandardScaler
 from torch.utils.data import DataLoader, Dataset
 
-from nsbi.physics.analysis import zz4l
-from nsbi.physics.hstar import c6
-from nsbi.physics.simulation import mcfm, msq
+from nsbi.examples.physics.analysis import zz4l
+from nsbi.examples.physics.hstar import c6
+from nsbi.examples.physics.simulation import mcfm, msq
 
 
 class AliceDataModule(L.LightningDataModule):

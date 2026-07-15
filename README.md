@@ -6,7 +6,7 @@ We use `uv` to manage our Python environment and dependencies.
 
 ```bash
 uv venv
-uv sync --with dev,docs
+uv sync #--with dev,docs
 source .venv/bin/activate
 ```
 ## Training NSBI models

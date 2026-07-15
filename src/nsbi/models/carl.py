@@ -40,7 +40,7 @@ class CARL(L.LightningModule):
         w = w.flatten()
         loss = (self.loss_fn(y_hat, y) * w).sum() / w.sum()
         self.log("train_loss", loss, on_step=False, on_epoch=True, prog_bar=False, sync_dist=True)
-        return {"loss": loss}
+        return loss
 
     def validation_step(self, batch, batch_idx):
         x, y, w = batch
