@@ -194,6 +194,225 @@ def main_function(cfg: DictConfig) -> None:
         raise ValueError(f"Unknown stage: {stage}")
 
 
+def main_ensemble_function(cfg: DictConfig) -> None:
+    """Train an ensemble of models for wifi (w_i f_i) ensembling.
+
+    Dispatches to the single-device path (one Ray task / GPU per member, many members run
+    concurrently across the cluster) or the distributed path (each member trained across
+    multiple GPUs via a Ray Train TorchTrainer) based on ``ensemble.scaling.strategy`` --
+    mirroring how ``main_tune_function`` dispatches on ``hpo_tune.scaling.strategy``. The
+    single-device path is the simple/original one; all distributed-specific machinery lives in
+    ``nsbi.tools.ensemble_distributed``.
+
+    Args:
+        cfg (DictConfig): Configuration composed by Hydra.
+    """
+    scaling_cfg = cfg.get("ensemble", {}).get("scaling", {})
+    strategy_name = scaling_cfg.get("strategy", None)
+
+    if strategy_name == "single_device" or not strategy_name:
+        _main_ensemble_single_device(cfg)
+    else:
+        from nsbi.tools.ensemble_distributed import main_ensemble_distributed
+
+        main_ensemble_distributed(cfg)
+
+
+def ensemble_train(config: dict, cfg: DictConfig, base_seed: int, ensemble_dir: Path) -> None:
+    """Function trainable for one ensemble member -- the ensemble analogue of ``ray_train``.
+
+    Where ``ray_train`` applies Tune-sampled hyperparameters onto ``cfg.model``, this applies
+    the member seed onto ``cfg``: it enables the per-member bootstrap of the training split,
+    routes checkpoints/logs to ``member_{i}``, and adds a ``TuneReportCallback`` so the member's
+    monitored metric surfaces in the Tune status table (the same table the distributed path
+    shows). It then calls ``main_function``, exactly like the HPO trainable -- plain
+    single-device Lightning, no Ray Train.
+
+    Tune grids over the per-member seed (mirroring the distributed path's ``member_seed`` grid),
+    so ``config`` carries ``member_seed`` and the member index is recovered as
+    ``member_seed - base_seed``.
+
+    Each trial receives its own deserialised copy of ``cfg`` (via ``tune.with_parameters``), so
+    mutating it here is trial-local and safe -- same contract as ``ray_train``.
+
+    Args:
+        config (dict): The per-member values Tune "sampled"; carries ``member_seed``.
+        cfg (DictConfig): The full config, bound via ``tune.with_parameters``.
+        base_seed (int): Seed of member 0; member ``i`` uses ``base_seed + i``.
+        ensemble_dir (Path): ``<ensemble.storage_path>/ensemble``; member ``i`` writes to
+            ``member_{i}`` under it.
+    """
+    member_seed = config["member_seed"]
+    member_idx = member_seed - base_seed
+
+    cfg.stage = "fit"
+    cfg.do_ensemble_train = False  # each member is a single run
+    cfg.seed = member_seed
+
+    # Each member bootstrap-resamples the shared training split with its own seed; val/wi_fit/
+    # test stay fixed and shared.
+    cfg.datamodule.bootstrap = True
+    cfg.datamodule.random_state = member_seed
+
+    # Route each member's checkpoints and logs to its own directory.
+    member_dir = ensemble_dir / f"member_{member_idx}"
+    cfg.trainer.default_root_dir = str(member_dir)
+    logger_cfg = cfg.get("logger")
+    if logger_cfg is not None and logger_cfg.get("csv") is not None:
+        cfg.logger.csv.save_dir = str(member_dir)
+    for cb_name in ("model_checkpoint", "model_checkpoint2"):
+        if cfg.get("callbacks", {}).get(cb_name) is not None:
+            cfg.callbacks[cb_name].dirpath = str(member_dir / "checkpoints")
+
+    # Report the monitored metric(s) to Tune so the status table shows a metric column (matching
+    # the distributed path). ``main_function`` only auto-adds this callback under ``do_hpo_tune``,
+    # so we add it explicitly here; default to the checkpoint monitor, widened by
+    # ``ensemble.monitor``. TuneReportCallback reports only these keys, keeping the table clean
+    # even when the closure-metrics callback logs many per-feature metrics.
+    monitor = list(cfg.get("ensemble", {}).get("monitor", []) or [])
+    ckpt_cfg = cfg.get("callbacks", {}).get("model_checkpoint")
+    if ckpt_cfg is not None and ckpt_cfg.get("monitor") and ckpt_cfg.monitor not in monitor:
+        monitor.append(ckpt_cfg.monitor)
+    if not monitor:
+        monitor = ["val_loss"]
+    if "callbacks" not in cfg:
+        cfg.callbacks = {}
+    cfg.callbacks["ray_tune_report_callback"] = {
+        "_target_": "ray.tune.integration.pytorch_lightning.TuneReportCallback",
+        "metrics": {name: name for name in monitor},
+        "on": "validation_end",
+    }
+
+    main_function(cfg)
+
+
+def _main_ensemble_single_device(cfg: DictConfig) -> None:
+    """Single-device ensemble training with Ray Tune (one GPU, or a fraction, per member).
+
+    Mirrors ``_main_tune_single_device``: each member is a Ray Tune function trainable
+    (``ensemble_train``) running plain single-device Lightning -- no Ray Train, so no Ray
+    strategy and no ``RAY_TRAIN_V2_ENABLED`` flag. Members are enumerated as a Tune grid over the
+    per-member seed (``num_samples=1``, so the grid expands to exactly ``ensemble.size`` trials, one
+    member each), matching the distributed path, so they show the same status table. Data is
+    split/scaled once on the driver; each member bootstrap-resamples the *training* split with its
+    own seed and writes to ``<ensemble.storage_path>/ensemble/member_{i}`` (default
+    ``~/ray_results/ensemble/member_{i}``) via the Lightning ``ModelCheckpoint`` -- the same
+    ``storage_path`` knob the distributed path honors. The held-out ``wi_fit`` and ``test`` splits
+    stay fixed and shared for the later weight-fitting and evaluation phases.
+
+    Args:
+        cfg (DictConfig): Configuration composed by Hydra.
+    """
+    import ray
+    from ray import tune
+
+    ensemble_cfg = cfg.get("ensemble", {})
+    size = ensemble_cfg.get("size", 16)
+    base_seed = ensemble_cfg.get("seed", cfg.get("seed", 0))
+    # A member trains on `devices: 1`, so it uses at most one GPU; a fraction < 1 lets Ray pack
+    # multiple members onto one physical GPU via the driver's time-slicing (Ray does not enforce
+    # VRAM, so co-located members must fit in memory). Mirrors the single-device HPO path.
+    gpus_per_member = ensemble_cfg.get("single_device_gpu_fraction_per_member", 1)
+    cpus_per_member = ensemble_cfg.get("cpus_per_worker", 2)
+    if not 0 < gpus_per_member <= 1:
+        raise ValueError(
+            "ensemble.single_device_gpu_fraction_per_member must be in (0, 1] "
+            f"(got {gpus_per_member}); use a distributed strategy for >1 GPU per member."
+        )
+
+    # Prefer connecting to a cluster started externally (e.g. `ray start --head` in the Polaris
+    # exec script). If none is running, fall through and let Tune's .fit() auto-start a local one.
+    if not ray.is_initialized():
+        try:
+            ray.init(address="auto", log_to_driver=True)
+            log.info("Connected to existing Ray cluster.")
+        except ConnectionError:
+            log.info("No running Ray cluster found; Tune will auto-start a local one.")
+
+    if cfg.get("seed"):
+        L.seed_everything(cfg.seed)
+
+    # Members run headless in worker processes; a progress bar per member would garble the logs.
+    cfg.trainer.enable_progress_bar = False
+
+    # Prepare the split/scaled data once on the driver so all members share one partition and
+    # don't race to write the same pickles in datamodule.setup("fit").
+    log.info("Preparing shared ensemble data (split + scale) once on the driver...")
+    datamodule = hydra.utils.instantiate(cfg.datamodule)
+    datamodule.prepare_data()
+
+    # Root the members under ``ensemble.storage_path`` (the same knob the distributed path
+    # honors), defaulting to Ray's ``~/ray_results`` when unset. Members land in
+    # ``<storage_path>/ensemble/member_{i}`` via the Lightning ``ModelCheckpoint`` dirpath.
+    storage_path = ensemble_cfg.get("storage_path", None)
+    root = Path(storage_path) if storage_path is not None else Path.home() / "ray_results"
+    ensemble_dir = root / "ensemble"
+
+    ckpt_callback = cfg.callbacks.model_checkpoint  # provides the trial-ranking metric + mode
+    trainable = tune.with_parameters(
+        ensemble_train, cfg=cfg, base_seed=base_seed, ensemble_dir=ensemble_dir
+    )
+
+    # One Tune trial per member: grid over the per-member seed (num_samples=1 -> exactly `size`
+    # trials), mirroring the distributed path's `member_seed` grid. Each trial claims
+    # `gpus_per_member` GPU(s), so Tune gates concurrency on real GPU availability and packs
+    # fractional members onto one GPU, like the single-device HPO path.
+    seeds = [base_seed + i for i in range(size)]
+
+    def _member_name(trial) -> str:
+        # Name trials/dirs member_<i> (i = seed - base_seed), mirroring the
+        # <storage_path>/ensemble/member_{i} convention and the distributed path's trial naming.
+        seed = trial.config["member_seed"]
+        return f"member_{seed - base_seed}"
+
+    tuner = tune.Tuner(
+        tune.with_resources(trainable, resources={"cpu": cpus_per_member, "gpu": gpus_per_member}),
+        param_space={"member_seed": tune.grid_search(seeds)},
+        tune_config=tune.TuneConfig(
+            num_samples=1,
+            metric=ckpt_callback.monitor,
+            mode=ckpt_callback.mode,
+            trial_name_creator=_member_name,
+            trial_dirname_creator=_member_name,
+            # Give each member a fresh actor that Ray kills on completion
+            reuse_actors=False,
+        ),
+    )
+
+    log.info(
+        "Training {} ensemble members as Ray Tune trials ({} GPU(s) each) under {}...",
+        size,
+        gpus_per_member,
+        ensemble_dir,
+    )
+    results = tuner.fit()
+    # tuner.fit() returns normally even when member trials fail (failures land in the ResultGrid),
+    # so check explicitly and raise -- this is what lets a chained do_ensemble_fit run only when
+    # the whole ensemble trained, rather than fitting weights on a partial ensemble.
+    if results.num_errors:
+        raise RuntimeError(
+            f"{results.num_errors} of {len(results)} ensemble members errored during training; "
+            f"inspect the failed trials under {ensemble_dir} before fitting weights."
+        )
+
+    # Record each member's best checkpoint in a manifest the fit reads, so it needn't know this
+    # path's on-disk layout. Members here write via the Lightning ModelCheckpoint dirpath to
+    # <ensemble_dir>/member_{i}/checkpoints; find_latest_checkpoint picks the current best.
+    from nsbi.tools.ensemble_fit import write_member_manifest
+
+    member_ckpts: dict[int, str] = {}
+    for i in range(size):
+        ckpt = find_latest_checkpoint(ensemble_dir / f"member_{i}" / "checkpoints")
+        if ckpt is None:
+            raise RuntimeError(
+                f"Member {i} reported no error but no checkpoint was found under "
+                f"{ensemble_dir / f'member_{i}' / 'checkpoints'}."
+            )
+        member_ckpts[i] = str(ckpt)
+    write_member_manifest(ensemble_dir, member_ckpts)
+    log.info("Ensemble training complete: {} members under {}", len(results), ensemble_dir)
+
+
 def ray_train(config: dict, cfg: DictConfig) -> None:
     """Function to be used by Ray Trainer to launch training.
 
@@ -319,6 +538,8 @@ def _main_tune_single_device(cfg: DictConfig) -> None:
             # instead of the default `ray_train_<id>` taken from the trainable name.
             trial_name_creator=lambda trial: f"trial_{trial.trial_id}",
             trial_dirname_creator=lambda trial: f"trial_{trial.trial_id}",
+            # Fresh actor per trial so DataLoader workers/threads are reclaimed at trial end
+            reuse_actors=False,
         ),
     )
     analysis = tuner.fit()
@@ -364,6 +585,21 @@ def main() -> None:
         if cfg.get("do_hpo_tune", False):
             log.info("Starting hyperparameter tuning with Ray Tune...")
             main_tune_function(cfg)
+        elif cfg.get("do_ensemble_train", False):
+            log.info("Starting ensemble training...")
+            # Raises if any member errored, so the chained fit below is only reached when the
+            # whole ensemble trained successfully.
+            main_ensemble_function(cfg)
+            if cfg.get("do_ensemble_fit", False):
+                log.info("Ensemble training succeeded; fitting wifi ensemble weights...")
+                from nsbi.tools.ensemble_fit import main_ensemble_fit
+
+                main_ensemble_fit(cfg)
+        elif cfg.get("do_ensemble_fit", False):
+            log.info("Fitting wifi ensemble weights...")
+            from nsbi.tools.ensemble_fit import main_ensemble_fit
+
+            main_ensemble_fit(cfg)
         else:
             log.info("Starting main training/evaluation function...")
             main_function(cfg)

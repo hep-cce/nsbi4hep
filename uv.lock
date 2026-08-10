@@ -1133,6 +1133,7 @@ dependencies = [
     { name = "loguru" },
     { name = "matplotlib" },
     { name = "pandas" },
+    { name = "pytorch-minimize" },
     { name = "ray", extra = ["tune"] },
     { name = "scikit-learn" },
     { name = "scipy" },
@@ -1159,8 +1160,9 @@ requires-dist = [
     { name = "hydra-core", specifier = ">=1.3.2,<2.0.0" },
     { name = "lightning", specifier = ">=2.5.3,<3.0.0" },
     { name = "loguru", specifier = ">=0.7.3,<0.8.0" },
-    { name = "matplotlib" },
+    { name = "matplotlib", specifier = ">=3.10.8" },
     { name = "pandas", specifier = ">=2.3.2,<3.0.0" },
+    { name = "pytorch-minimize", specifier = ">=0.0.2" },
     { name = "ray", extras = ["tune"], specifier = ">=2.49.0,<3.0.0" },
     { name = "scikit-learn", specifier = ">=1.7.1,<2.0.0" },
     { name = "scipy", specifier = ">=1.16.1,<2.0.0" },
@@ -1849,6 +1851,20 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/8b/ac/ebd5f6f58691cbd4f73836e43e1727f3814311b960c41f88e259606ca2b2/pytorch_lightning-2.6.1.tar.gz", hash = "sha256:ba08f8901cf226fcca473046ad9346f414e99117762dc869c76e650d5b3d7bdc", size = 665563, upload-time = "2026-01-30T14:59:11.636Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/0e/93/c8c361bf0a2fe50f828f32def460e8b8a14b93955d3fd302b1a9b63b19e4/pytorch_lightning-2.6.1-py3-none-any.whl", hash = "sha256:1f8118567ec829e3055f16cf1aa320883a86a47c836951bfd9dcfa34ec7ffd59", size = 857273, upload-time = "2026-01-30T14:59:10.141Z" },
+]
+
+[[package]]
+name = "pytorch-minimize"
+version = "0.1.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy" },
+    { name = "scipy" },
+    { name = "torch" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/dd/80/cc2ecebca52d111ae19f34e2b615693cd62a5de13d5e85e86a41cea4b04c/pytorch_minimize-0.1.0.tar.gz", hash = "sha256:8586c2050c7a0ec0d34178c1bd40206a4f9402f63ff6628f42481d6d5f2200c2", size = 53586, upload-time = "2026-01-23T21:46:21.813Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/47/e4/7a4589d15a59782c0e9656a96bb6a55f6f50ed432371d89801bf8b6dcc90/pytorch_minimize-0.1.0-py3-none-any.whl", hash = "sha256:806e2d16177bf630d1c1cfb3fd7b09a26b3a78aad3bb7405595fb9b8e34ce7be", size = 69254, upload-time = "2026-01-23T21:46:19.099Z" },
 ]
 
 [[package]]

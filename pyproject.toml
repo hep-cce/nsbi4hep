@@ -21,6 +21,7 @@ dependencies = [
     "ray[tune] (>=2.49.0,<3.0.0)",
     "wandb>=0.25.0",
     "matplotlib>=3.10.8",
+    "pytorch-minimize>=0.0.2",
 ]
 
 [project.urls]

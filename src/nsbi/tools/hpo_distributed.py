@@ -211,10 +211,24 @@ def _train_func(config: dict, cfg: DictConfig) -> None:
             ``TorchTrainer`` is constructed. Each trial/worker receives its own
             deserialised copy, so mutating it here is safe.
     """
+    import tempfile
+
+    from ray.train import get_context
     from ray.train.lightning import (
         RayLightningEnvironment,
         prepare_trainer,
     )
+
+    # Give each trial its own temp root so RayTrainReportCallback's per-epoch checkpoint
+    # staging dir (built under tempfile.gettempdir()) is unique per trial. Without this, two
+    # trials co-located on one node (num_workers*gpus_per_worker < node GPUs) share
+    # /tmp/lightning_checkpoints-...-name=<TorchTrainer> and race on shutil.rmtree ->
+    # FileNotFoundError.
+    trial_id = get_context().get_trial_id()
+    trial_tmp = os.path.join(os.environ.get("TMPDIR", "/tmp"), f"nsbi_trial_{trial_id}")
+    os.makedirs(trial_tmp, exist_ok=True)
+    os.environ["TMPDIR"] = trial_tmp
+    tempfile.tempdir = trial_tmp
 
     # Apply the sampled hyperparameters onto the model config (same contract as the
     # single-device ``ray_train`` in entry_cli).

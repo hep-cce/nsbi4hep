@@ -1,12 +1,27 @@
 seed: 42
 suppress_accumulate_grad_warning: false
 do_hpo_tune: false
+do_ensemble_train: false
+do_ensemble_fit: false
 stage: "fit"
 do_compile: false
+
 compile_kwargs:
   backend: inductor
   dynamic: true
   mode: max-autotune
+
+ensemble:
+  size: 16
+  cpus_per_worker: 2
+  single_device_gpu_fraction_per_member: 1
+  scaling:
+    strategy: "single_device"
+    num_workers: 1      # GPU parallel processes per member
+    gpus_per_worker: 1  # GPUs per parallel worker process (>1 for fsdp/deepspeed)
+  fit:
+    max_iter: 1000  # L-BFGS max iterations
+    eps: 1e-7       # guards log[s/(1-s)] as s -> 1
 
 hpo_tune:
   num_samples: 20
@@ -61,6 +76,10 @@ datamodule:
   batch_size: 2048
   data_dir: "/lus/eagle/projects/ScalingHEPAI/test_Nathan/nsbi_outputs"
   num_workers: 8
+  train_size: 0.6
+  val_size: 0.2
+  wi_fit_size: 0.0
+  test_size: 0.2
 
 model:
   _target_: nsbi.models.carl.CARL
