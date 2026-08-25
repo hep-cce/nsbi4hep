@@ -57,6 +57,21 @@ class CARL(L.LightningModule):
             "kin": x.detach().cpu(),
         }
 
+    def test_step(self, batch, batch_idx):
+        x, y, w = batch
+        y_hat = self.model(x).flatten()
+        y = y.flatten()
+        w = w.flatten()
+        loss = (self.loss_fn(y_hat, y) * w).sum() / w.sum()
+        self.log("test_loss", loss, on_step=False, on_epoch=True, prog_bar=False, sync_dist=True)
+        return {
+            "test_loss": loss,
+            "y_hat": y_hat.detach().cpu(),
+            "y": y.detach().cpu(),
+            "w": w.detach().cpu(),
+            "kin": x.detach().cpu(),
+        }
+
     def predict_step(self, batch, batch_idx):
         x = batch if not isinstance(batch, (tuple, list)) else batch[0]
         return self.model(x).flatten()

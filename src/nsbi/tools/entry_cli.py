@@ -1,3 +1,4 @@
+import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -36,11 +37,19 @@ def main_function(cfg: DictConfig) -> None:
 
     stage = cfg.get("stage", "fit")
 
+    # Directory that `test`/`predict`/`resume` search for checkpoints. An explicit top-level
+    # `ckpt_path` wins; otherwise it is derived from the *first* configured ModelCheckpoint's
+    # `dirpath` -- conventionally the primary (val_loss) one, so a later checkpoint callback
+    # must not overwrite it. If nothing sets `dirpath`, it falls back below to the location
+    # Lightning itself would have picked.
+    ckpt_path = cfg.get("ckpt_path", None)
+    derived_ckpt_path = None
+
     for key, callback_config in cfg.get("callbacks").items():
         if isinstance(callback_config, DictConfig) and "_target_" in callback_config:
             target = callback_config._target_
             if target == "lightning.pytorch.callbacks.ModelCheckpoint":
-                ckpt_path = callback_config.get("dirpath", None)
+                derived_ckpt_path = derived_ckpt_path or callback_config.get("dirpath", None)
             if (
                 "RichProgressBar" in target
                 and cfg.get("trainer", {}).get("enable_progress_bar", False) is False
@@ -49,12 +58,11 @@ def main_function(cfg: DictConfig) -> None:
                 log.info("Removing <{}> callback as progress bar is disabled.", key)
                 cfg.callbacks.pop(key)
 
+    ckpt_path = ckpt_path or derived_ckpt_path
+
     ckpt_file = cfg.get("ckpt_file", None)
     assert not (stage == "finetune" and ckpt_file is None), (
         "In fine-tuning stage, a checkpoint file (ckpt_file) must be provided."
-    )
-    assert not (stage == "resume" and ckpt_path is None), (
-        "In resume stage, a checkpoint path (ckpt_path) must be provided."
     )
 
     log.info("Instantiating datamodule <{}>", cfg.datamodule._target_)
@@ -97,13 +105,32 @@ def main_function(cfg: DictConfig) -> None:
             else ""
         )
 
-        for callback_config in cfg.get("callbacks").values():
-            if isinstance(callback_config, DictConfig) and "_target_" in callback_config:
-                if callback_config._target_ == "lightning.pytorch.callbacks.ModelCheckpoint":
-                    # Set the filename suffix for ModelCheckpoint
-                    ckpt_filename = f"best-{filename_suffix}-" + "{epoch}-{step}"
-                    ckpt_filename = ckpt_filename.replace("/", "-")
-                    callback_config.filename = ckpt_filename
+        # Prefix the *configured* filename with the experiment ID, when the logger has one
+        # (WandB does; CSVLogger does not). Without an ID the configured `filename` is left
+        # alone rather than being replaced by a generic epoch/step template.
+        if filename_suffix:
+            for callback_config in cfg.get("callbacks").values():
+                if isinstance(callback_config, DictConfig) and "_target_" in callback_config:
+                    if callback_config._target_ == "lightning.pytorch.callbacks.ModelCheckpoint":
+                        base = callback_config.get("filename") or "{epoch}-{step}"
+                        callback_config.filename = (
+                            f"best-{filename_suffix.replace('/', '-')}-{base}"
+                        )
+
+    if ckpt_path is None:
+        # Nothing configured a ModelCheckpoint `dirpath`, so Lightning picks the directory
+        # itself in ModelCheckpoint.__resolve_ckpt_dir: <logger.save_dir>/<logger.name>/
+        # version_<N>/checkpoints, or <default_root_dir>/checkpoints when there is no logger.
+        # Reconstruct that here minus the version subdirectory -- find_latest_checkpoint()
+        # rglobs, so leaving it off finds the previous run's checkpoints instead of the fresh
+        # version directory this run just created.
+        default_root_dir = cfg.get("trainer", {}).get("default_root_dir", None) or Path.cwd()
+        if loggers:
+            save_dir = getattr(loggers[0], "save_dir", None) or default_root_dir
+            ckpt_path = str(Path(save_dir) / str(loggers[0].name))
+        else:
+            ckpt_path = str(Path(default_root_dir) / "checkpoints")
+        log.info("No ModelCheckpoint dirpath configured; derived ckpt_path: {}", ckpt_path)
 
     # add TuneReportCallback if using Ray Tune
     if cfg.get("do_hpo_tune", False):
@@ -123,6 +150,15 @@ def main_function(cfg: DictConfig) -> None:
 
     log.info("Instantiating callbacks...")
     callbacks: list[Callback] = utils.instantiate_callbacks(cfg.get("callbacks"))
+
+    if stage in ("test", "predict") and (
+        cfg.trainer.get("devices", 1) != 1 or cfg.trainer.get("num_nodes", 1) != 1
+    ):
+        # Evaluate on a single device: distributed strategies pad the dataset via
+        # DistributedSampler so some samples are evaluated twice, biasing metrics.
+        log.info("Forcing devices=1, num_nodes=1 for the {} stage.", stage)
+        cfg.trainer.devices = 1
+        cfg.trainer.num_nodes = 1
 
     log.info("Instantiating trainer <{}>", cfg.trainer._target_)
     trainer: Trainer = hydra.utils.instantiate(cfg.trainer, callbacks=callbacks, logger=loggers)
@@ -149,13 +185,18 @@ def main_function(cfg: DictConfig) -> None:
         ckpt_file = None
     elif stage == "resume":
         ckpt_file = find_latest_checkpoint(ckpt_path) if ckpt_path else None
-        if ckpt_file:
-            log.info("Resuming training from checkpoint: {}", ckpt_file)
-    else:
-        pass
+        if ckpt_file is None:
+            raise ValueError(f"No checkpoint found under ckpt_path={ckpt_path!r} to resume from.")
+        log.info("Resuming training from checkpoint: {}", ckpt_file)
+    elif stage == "fit":
+        # Training from scratch: drop any `ckpt_file` left in the config, otherwise the
+        # trainer.fit() call below would silently resume from it.
+        ckpt_file = None
 
     if stage in ["fit", "finetune", "resume"]:
         log.info("Starting training!")
+        # NB: Lightning's `ckpt_path` argument takes a checkpoint *file*, unlike this module's
+        # `ckpt_path` config key, which is the *directory* that file is searched for in.
         trainer.fit(
             model=model,
             train_dataloaders=datamodule.train_dataloader(),
@@ -168,7 +209,7 @@ def main_function(cfg: DictConfig) -> None:
         if ckpt_file:
             log.info("Testing model with checkpoint: {}", ckpt_file)
         else:
-            raise ValueError("No checkpoint file provided for testing.")
+            raise ValueError(f"No checkpoint found under ckpt_path={ckpt_path!r} for testing.")
 
         model.load_state_dict(torch.load(ckpt_file)["state_dict"])
         with torch.no_grad():
@@ -181,7 +222,7 @@ def main_function(cfg: DictConfig) -> None:
         if ckpt_file:
             log.info("Predicting with model from checkpoint: {}", ckpt_file)
         else:
-            raise ValueError("No checkpoint file provided for prediction.")
+            raise ValueError(f"No checkpoint found under ckpt_path={ckpt_path!r} for prediction.")
 
         # model.load_state_dict(torch.load(ckpt_file)["state_dict"])
         trainer.predict(
@@ -548,6 +589,8 @@ def _main_tune_single_device(cfg: DictConfig) -> None:
 
 def main() -> None:
     """Main function to run the training script."""
+    log.remove()
+    log.add(sys.stdout, level="INFO")
     log.add(
         "logs/nsbi.log",
         rotation="1 MB",

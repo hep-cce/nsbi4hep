@@ -48,7 +48,14 @@ class BalancedDataModule(L.LightningDataModule):
         self.return_kin_val = return_kin_val
         # The *_size values are relative fractions: they are normalized by their sum in _split,
         # so they need not add up to 1 (all data is used). e.g. 0.6/0.2/0/0.2 and 3/1/0/1 both
-        # give a 60/20/0/20 split.
+        # give a 60/20/0/20 split. Each split is carved via train_test_split, which rejects empty
+        # fractions.
+        if train_size <= 0 or val_size <= 0 or test_size <= 0 or wi_fit_size < 0:
+            raise ValueError(
+                "Invalid split sizes: train_size, val_size and test_size must be > 0 and "
+                f"wi_fit_size must be >= 0, got train_size={train_size}, val_size={val_size}, "
+                f"wi_fit_size={wi_fit_size}, test_size={test_size}"
+            )
         self.train_size = train_size
         self.val_size = val_size
         # wi_fit is a held-out split used to fit ensemble (w_i f_i) weights and estimate their
@@ -182,6 +189,8 @@ class BalancedDataModule(L.LightningDataModule):
             )
 
         elif stage == "test":
+            with open(os.path.join(self.data_dir, "scaler.pkl"), "rb") as f:
+                self.scaler = pickle.load(f)
             with open(os.path.join(self.data_dir, "events_numerator_test.pkl"), "rb") as f:
                 X_numerator_test, w_numerator_test = pickle.load(f)
             with open(os.path.join(self.data_dir, "events_denominator_test.pkl"), "rb") as f:

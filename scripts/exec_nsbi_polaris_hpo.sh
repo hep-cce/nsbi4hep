@@ -11,7 +11,10 @@ CONFIG_YAML=/home/nkang/workdir/nsbi4hep/configs/conf_tune_carl.yaml
 
 cd $NSBI_SOURCE_PATH
 
-module use /soft/modulefiles; module load conda; conda activate base
+#module use /soft/modulefiles
+#module load conda
+source /soft/applications/conda/2025-09-25/mconda3/etc/profile.d/conda.sh
+conda activate base
 source $NSBI_SOURCE_PATH/.venv/bin/activate
 
 # proxy settings
@@ -35,6 +38,7 @@ export TMPDIR=/tmp
 export PYTHONUNBUFFERED=1
 export OPENBLAS_NUM_THREADS=1
 export RAY_enable_worker_prestart=0
+export RAY_ENABLE_UV_RUN_RUNTIME_ENV=0
 
 # Distributed HPO uses the Ray Train V1 Tuner(TorchTrainer(...)) integration so Tune and
 # Train share one placement group (V2 nesting is broken: Ray issues #53921 / #54305).
