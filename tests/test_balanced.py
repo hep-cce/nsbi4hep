@@ -8,10 +8,23 @@ from sklearn.preprocessing import StandardScaler
 
 N_EVENTS = 160
 N_FEATURES = 2
+BATCH_SIZE = 32
 
-# Numerator feature entries run 0..319 (arange below), so any offset >= 320 makes the
-# denominator rows disjoint from the numerator rows.
 DENOMINATOR_OFFSET = 1_000.0
+
+SPLIT_3WAY = {"train_size": 0.5, "val_size": 0.25, "wi_fit_size": 0.0, "test_size": 0.25}
+SPLIT_4WAY = {"train_size": 0.5, "val_size": 0.25, "wi_fit_size": 0.125, "test_size": 0.125}
+
+
+def _split_counts(split):
+    """Per-hypothesis event counts for a split spec, in (train, val, wi_fit, test) order."""
+    total = sum(split.values())
+    counts = [
+        N_EVENTS * split[k] / total
+        for k in ("train_size", "val_size", "wi_fit_size", "test_size")
+    ]
+    assert all(c == int(c) for c in counts), "split fractions must divide N_EVENTS evenly"
+    return tuple(int(c) for c in counts)
 
 
 def _make_events(offset=0.0, seed=0):
@@ -22,9 +35,13 @@ def _make_events(offset=0.0, seed=0):
     return X, w
 
 
+def _make_event_pair():
+    """Numerator and denominator event sets, offset so no feature row is shared."""
+    return _make_events(), _make_events(offset=DENOMINATOR_OFFSET, seed=1)
+
+
 def _make_datamodule(data_dir, **overrides):
-    X_num, w_num = _make_events(offset=0.0)
-    X_den, w_den = _make_events(offset=DENOMINATOR_OFFSET, seed=1)
+    (X_num, w_num), (X_den, w_den) = _make_event_pair()
 
     def loader(path, sample_size=None, random_state=None):
         return (X_num, w_num) if path == "num" else (X_den, w_den)
@@ -34,13 +51,10 @@ def _make_datamodule(data_dir, **overrides):
         numerator_events="num",
         denominator_events="den",
         data_dir=str(data_dir),
-        train_size=0.5,
-        val_size=0.25,
-        wi_fit_size=0.0,
-        test_size=0.25,
-        batch_size=32,
+        batch_size=BATCH_SIZE,
         num_workers=0,
         random_state=1,
+        **SPLIT_3WAY,
     )
     kwargs.update(overrides)
     return BalancedDataModule(**kwargs)
@@ -49,31 +63,32 @@ def _make_datamodule(data_dir, **overrides):
 def test_split_without_wifit(tmp_path):
     dm = _make_datamodule(tmp_path)
     X, w = _make_events()
+    n_train, n_val, _, n_test = _split_counts(SPLIT_3WAY)
 
     (X_tr, w_tr), (X_val, w_val), wi_fit, (X_te, w_te) = dm._split(X, w)
 
     assert wi_fit is None
-    assert (len(X_tr), len(X_val), len(X_te)) == (80, 40, 40)
+    assert (len(X_tr), len(X_val), len(X_te)) == (n_train, n_val, n_test)
     # splits are unshuffled slices that together cover the input exactly
     np.testing.assert_array_equal(np.concatenate([X_tr, X_val, X_te]), X)
     np.testing.assert_array_equal(np.concatenate([w_tr, w_val, w_te]), w)
 
 
 def test_split_with_wifit(tmp_path):
-    dm = _make_datamodule(
-        tmp_path, train_size=0.5, val_size=0.25, wi_fit_size=0.125, test_size=0.125
-    )
+    dm = _make_datamodule(tmp_path, **SPLIT_4WAY)
     X, w = _make_events()
+    n_train, n_val, n_wi_fit, n_test = _split_counts(SPLIT_4WAY)
 
     (X_tr, _), (X_val, _), (X_wi, w_wi), (X_te, _) = dm._split(X, w)
 
-    assert (len(X_tr), len(X_val), len(X_wi), len(X_te)) == (80, 40, 20, 20)
+    assert (len(X_tr), len(X_val), len(X_wi), len(X_te)) == (n_train, n_val, n_wi_fit, n_test)
     # test is peeled off before wi_fit, so the input order is train | val | test | wi_fit
     np.testing.assert_array_equal(np.concatenate([X_tr, X_val, X_te, X_wi]), X)
 
 
 def test_split_sizes_are_relative_fractions(tmp_path):
-    dm_frac = _make_datamodule(tmp_path, train_size=0.5, val_size=0.25, test_size=0.25)
+    dm_frac = _make_datamodule(tmp_path, **SPLIT_3WAY)
+    # the same 2:1:1 ratio as SPLIT_3WAY, unnormalized
     dm_ratio = _make_datamodule(tmp_path, train_size=2, val_size=1, test_size=1)
     X, w = _make_events()
 
@@ -102,8 +117,7 @@ def test_invalid_split_sizes_raise(tmp_path, overrides):
 
 
 def test_dataset_balances_weights_and_labels():
-    X_num, w_num = _make_events()
-    X_den, w_den = _make_events(offset=DENOMINATOR_OFFSET, seed=1)
+    (X_num, w_num), (X_den, w_den) = _make_event_pair()
 
     ds = BalancedDataset(X_num, w_num, X_den, w_den, random_state=0)
 
@@ -120,8 +134,7 @@ def test_dataset_balances_weights_and_labels():
 
 
 def test_dataset_return_kin():
-    X_num, w_num = _make_events()
-    X_den, w_den = _make_events(offset=DENOMINATOR_OFFSET, seed=1)
+    (X_num, w_num), (X_den, w_den) = _make_event_pair()
 
     ds = BalancedDataset(X_num, w_num, X_den, w_den, random_state=0, return_kin=True)
     item = ds[0]
@@ -129,8 +142,7 @@ def test_dataset_return_kin():
 
 
 def test_dataset_applies_scaler():
-    X_num, w_num = _make_events()
-    X_den, w_den = _make_events(offset=DENOMINATOR_OFFSET, seed=1)
+    (X_num, w_num), (X_den, w_den) = _make_event_pair()
     scaler = StandardScaler().fit(np.concatenate([X_num, X_den]))
 
     ds = BalancedDataset(X_num, w_num, X_den, w_den, scaler=scaler, random_state=0)
@@ -140,10 +152,9 @@ def test_dataset_applies_scaler():
 
 
 def test_prepare_data_writes_split_pickles(tmp_path):
-    dm = _make_datamodule(
-        tmp_path, train_size=0.5, val_size=0.25, wi_fit_size=0.125, test_size=0.125
-    )
+    dm = _make_datamodule(tmp_path, **SPLIT_4WAY)
     dm.prepare_data()
+    n_train = _split_counts(SPLIT_4WAY)[0]
 
     expected = ["scaler.pkl"] + [
         f"events_{side}_{split}.pkl"
@@ -155,8 +166,8 @@ def test_prepare_data_writes_split_pickles(tmp_path):
 
     with open(tmp_path / "events_numerator_train.pkl", "rb") as f:
         X_tr, w_tr = pickle.load(f)
-    assert X_tr.shape == (80, N_FEATURES)
-    assert w_tr.shape == (80,)
+    assert X_tr.shape == (n_train, N_FEATURES)
+    assert w_tr.shape == (n_train,)
 
 
 def test_prepare_data_without_wifit_writes_no_wifit_pickles(tmp_path):
@@ -171,16 +182,17 @@ def test_setup_fit_builds_datasets(tmp_path):
     dm = _make_datamodule(tmp_path)
     dm.prepare_data()
     dm.setup("fit")
+    n_train, n_val, _, _ = _split_counts(SPLIT_3WAY)
 
-    # 80 train events per hypothesis -> 160 combined; 40 per hypothesis for val
-    assert len(dm.training_data) == 160
-    assert len(dm.validation_data) == 80
+    # each dataset combines both hypotheses' events
+    assert len(dm.training_data) == 2 * n_train
+    assert len(dm.validation_data) == 2 * n_val
 
     batch = next(iter(dm.train_dataloader()))
     x, y, w = batch
-    assert x.shape == (32, N_FEATURES)
-    assert y.shape == (32,)
-    assert w.shape == (32,)
+    assert x.shape == (BATCH_SIZE, N_FEATURES)
+    assert y.shape == (BATCH_SIZE,)
+    assert w.shape == (BATCH_SIZE,)
 
 
 def test_setup_test_loads_the_fitted_scaler(tmp_path):
@@ -191,9 +203,9 @@ def test_setup_test_loads_the_fitted_scaler(tmp_path):
 
     dm = _make_datamodule(tmp_path)
     dm.setup("test")
+    n_test = _split_counts(SPLIT_3WAY)[3]
 
-    # 40 test events per hypothesis -> 80 combined
-    assert len(dm.testing_data) == 80
+    assert len(dm.testing_data) == 2 * n_test
 
     with open(tmp_path / "scaler.pkl", "rb") as f:
         scaler = pickle.load(f)
@@ -214,11 +226,12 @@ def test_bootstrap_resamples_training_but_not_validation(tmp_path):
     dm_boot = _make_datamodule(tmp_path, bootstrap=True)
     dm_boot.setup("fit")  # reuses the pickles dm_plain prepared
 
+    n_combined_train = 2 * _split_counts(SPLIT_3WAY)[0]
     # plain training data keeps every (unique) input row exactly once
-    assert len(np.unique(dm_plain.training_data.X, axis=0)) == 160
+    assert len(np.unique(dm_plain.training_data.X, axis=0)) == n_combined_train
     # bootstrap draws with replacement -> duplicates, so fewer unique rows
-    assert len(np.unique(dm_boot.training_data.X, axis=0)) < 160
-    assert len(dm_boot.training_data) == 160
+    assert len(np.unique(dm_boot.training_data.X, axis=0)) < n_combined_train
+    assert len(dm_boot.training_data) == n_combined_train
 
     # validation is untouched by bootstrap and identical across members
     np.testing.assert_allclose(dm_boot.validation_data.X, dm_plain.validation_data.X)
