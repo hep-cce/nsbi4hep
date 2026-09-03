@@ -45,6 +45,9 @@ def main_function(cfg: DictConfig) -> None:
     ckpt_path = cfg.get("ckpt_path", None)
     derived_ckpt_path = None
 
+    # Popped after the scan -- mutating cfg.callbacks while iterating over it is not safe.
+    callbacks_to_remove = []
+
     for key, callback_config in cfg.get("callbacks").items():
         if isinstance(callback_config, DictConfig) and "_target_" in callback_config:
             target = callback_config._target_
@@ -54,9 +57,12 @@ def main_function(cfg: DictConfig) -> None:
                 "RichProgressBar" in target
                 and cfg.get("trainer", {}).get("enable_progress_bar", False) is False
             ):
-                # remove RichProgressBar callback if progress bar is disabled
-                log.info("Removing <{}> callback as progress bar is disabled.", key)
-                cfg.callbacks.pop(key)
+                callbacks_to_remove.append(key)
+
+    for key in callbacks_to_remove:
+        # remove RichProgressBar callback if progress bar is disabled
+        log.info("Removing <{}> callback as progress bar is disabled.", key)
+        cfg.callbacks.pop(key)
 
     ckpt_path = ckpt_path or derived_ckpt_path
 
