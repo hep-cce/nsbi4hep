@@ -15,9 +15,44 @@ if TYPE_CHECKING:
 
 from loguru import logger as log
 
+from nsbi.tools.predict import build_member_ensemble, build_model_from_checkpoint
 from nsbi.utils import hydra_utils as utils
 from nsbi.utils.lightning_utils import find_latest_checkpoint
 from nsbi.utils.ray_utils import parse_dist
+
+
+def maybe_compile(cfg: DictConfig, model):
+    """Apply ``torch.compile`` when ``do_compile`` is set, returning the model to run with.
+
+    Called once the model holds its final weights, never at instantiation. ``torch.compile`` returns
+    a wrapper module, so assigning it inserts an ``_orig_mod.`` prefix into every ``state_dict``
+    key and a normally-trained checkpoint no longer loads under ``strict=True``. ``finetune``,
+    ``test`` and ``predict`` rebuild the model from their checkpoint anyway, so a model compiled at
+    instantiation would just be discarded.
+
+    Args:
+        cfg: Full config; reads ``do_compile`` and ``compile_kwargs``.
+        model: The model, already holding its final weights.
+
+    Returns:
+        The model to run with -- the same object, unless the fallback compiled it wholesale.
+    """
+    if not cfg.get("do_compile", False):
+        return model
+
+    compile_kwargs = cfg.compile_kwargs
+    log.info("Compiling model with torch.compile()")
+    if hasattr(model, "network"):
+        model.network = torch.compile(model.network, **compile_kwargs)  # type: ignore
+    elif hasattr(model, "model"):
+        model.model = torch.compile(model.model, **compile_kwargs)  # type: ignore
+    else:
+        # If the model does not have a 'network' attribute, compile the model directly.
+        # This is useful for models that do not follow the typical structure.
+        log.warning("Model does not have a 'network' attribute. Compiling the model directly.")
+        # This is a fallback and may not be suitable for all models.
+        model = torch.compile(model, **compile_kwargs)  # type: ignore
+    return model
 
 
 def main_function(cfg: DictConfig) -> None:
@@ -29,13 +64,14 @@ def main_function(cfg: DictConfig) -> None:
     Args:
         cfg (DictConfig): Configuration composed by Hydra.
     """
-    torch.set_float32_matmul_precision(cfg.get("float32_matmul_precision", "medium"))
+    stage = cfg.get("stage", "fit")
+
+    default_precision = "highest" if stage == "predict" else "medium"
+    torch.set_float32_matmul_precision(cfg.get("float32_matmul_precision", default_precision))
 
     # set seed for random number generators in pytorch, numpy and python.random
     if cfg.get("seed"):
         L.seed_everything(cfg.seed)
-
-    stage = cfg.get("stage", "fit")
 
     # Directory that `test`/`predict`/`resume` search for checkpoints. An explicit top-level
     # `ckpt_path` wins; otherwise it is derived from the *first* configured ModelCheckpoint's
@@ -81,19 +117,6 @@ def main_function(cfg: DictConfig) -> None:
 
     log.info("Instantiating model <{}>", cfg.model._target_)
     model: LightningModule = hydra.utils.instantiate(cfg.model)
-    if cfg.get("do_compile", False):
-        compile_kwargs = cfg.compile_kwargs
-        log.info("Compiling model with torch.compile()")
-        if hasattr(model, "network"):
-            model.network = torch.compile(model.network, **compile_kwargs)  # type: ignore
-        elif hasattr(model, "model"):
-            model.model = torch.compile(model.model, **compile_kwargs)  # type: ignore
-        else:
-            # If the model does not have a 'network' attribute, compile the model directly.
-            # This is useful for models that do not follow the typical structure.
-            log.warning("Model does not have a 'network' attribute. Compiling the model directly.")
-            # This is a fallback and may not be suitable for all models.
-            model = torch.compile(model, **compile_kwargs)  # type: ignore
 
     log.info("Instantiating loggers...")
     loggers: list[Logger] = utils.instantiate_loggers(cfg.get("logger"))  # type: ignore
@@ -154,6 +177,26 @@ def main_function(cfg: DictConfig) -> None:
         }
         log.info("Ray Tune callback added.")
 
+    # The predict stage writes per-event scores through a BasePredictionWriter. Injected here rather
+    # than configured under `callbacks` so it only exists for this stage, and before
+    # instantiate_callbacks so the trainer is built with it (appending to trainer.callbacks
+    # afterwards skips Lightning's callback ordering/validation).
+    if stage == "predict":
+        predict_cfg = cfg.get("predict", {}) or {}
+        # A relative out_dir anchors to datamodule.data_dir, where the scaler and split pkls are
+        out_dir = Path(predict_cfg.get("out_dir", "predictions"))
+        if not out_dir.is_absolute():
+            out_dir = Path(cfg.datamodule.get("data_dir", ".")) / out_dir
+        log.info("Per-event scores will be written under {}", out_dir)
+
+        if "callbacks" not in cfg:
+            cfg.callbacks = {}
+        cfg.callbacks["prediction_writer"] = {
+            "_target_": "nsbi.callbacks.prediction_writer.ScoreWriter",
+            "out_dir": str(out_dir),
+            "format": predict_cfg.get("format", "csv"),
+        }
+
     log.info("Instantiating callbacks...")
     callbacks: list[Callback] = utils.instantiate_callbacks(cfg.get("callbacks"))
 
@@ -186,8 +229,10 @@ def main_function(cfg: DictConfig) -> None:
     if stage == "finetune":
         log.info("Finetuning the model..")
         log.info("Loading checkpoint from path {}", ckpt_file)
-        # check the path and find the best checkpoint.
-        model.load_state_dict(torch.load(ckpt_file)["state_dict"])
+        # Built from the checkpoint's own hyperparameters (warning where cfg.model disagrees)
+        model = build_model_from_checkpoint(cfg, ckpt_file)
+        # Weights are in hand, so clear the path: trainer.fit() must start a fresh optimizer rather
+        # than resume the finetuned-from run's state.
         ckpt_file = None
     elif stage == "resume":
         ckpt_file = find_latest_checkpoint(ckpt_path) if ckpt_path else None
@@ -201,6 +246,8 @@ def main_function(cfg: DictConfig) -> None:
 
     if stage in ["fit", "finetune", "resume"]:
         log.info("Starting training!")
+        # After the finetune branch above has loaded its weights, so compiling cannot interfere.
+        model = maybe_compile(cfg, model)
         # NB: Lightning's `ckpt_path` argument takes a checkpoint *file*, unlike this module's
         # `ckpt_path` config key, which is the *directory* that file is searched for in.
         trainer.fit(
@@ -217,26 +264,48 @@ def main_function(cfg: DictConfig) -> None:
         else:
             raise ValueError(f"No checkpoint found under ckpt_path={ckpt_path!r} for testing.")
 
-        model.load_state_dict(torch.load(ckpt_file)["state_dict"])
+        # Built from the checkpoint's stored hyperparameters
+        model = build_model_from_checkpoint(cfg, ckpt_file)
+        model = maybe_compile(cfg, model)
         with torch.no_grad():
             model.eval()
-            trainer.test(model=model, datamodule=datamodule, ckpt_path=ckpt_file)
+            # No ckpt_path: the weights are loaded above, and passing it would have Lightning
+            # re-read the same file -- which, after compiling, fails on the `_orig_mod.` key prefix
+            # the compile wrapper introduces.
+            trainer.test(model=model, datamodule=datamodule)
 
     elif stage == "predict":
         log.info("Starting prediction!")
-        ckpt_file = find_latest_checkpoint(ckpt_path) if ckpt_path else None
-        if ckpt_file:
-            log.info("Predicting with model from checkpoint: {}", ckpt_file)
-        else:
-            raise ValueError(f"No checkpoint found under ckpt_path={ckpt_path!r} for prediction.")
+        predict_cfg = cfg.get("predict", {}) or {}
 
-        # model.load_state_dict(torch.load(ckpt_file)["state_dict"])
-        trainer.predict(
-            model=model,
-            dataloaders=datamodule.predict_dataloader(),
-            return_predictions=False,
-            ckpt_path="best",
-        )
+        if predict_cfg.get("use_ensemble", False):
+            # Assembled from the member manifest, so there is no single checkpoint and ckpt_path is
+            # ignored. No fitted weights needed either: each member's own score is written, and the
+            # wifi combination stays downstream.
+            model = build_member_ensemble(cfg)
+        else:
+            ckpt_file = find_latest_checkpoint(ckpt_path) if ckpt_path else None
+            if ckpt_file is None:
+                raise ValueError(
+                    f"No checkpoint found under ckpt_path={ckpt_path!r} for prediction."
+                )
+            log.info("Predicting with model from checkpoint: {}", ckpt_file)
+            # Built from the checkpoint's own hyperparameters and loaded explicitly, replacing the
+            # cfg.model instance above: Lightning's ckpt_path="best" only resolves from a
+            # ModelCheckpoint of a fit run in this same Trainer, never a standalone predict.
+            model = build_model_from_checkpoint(cfg, ckpt_file)
+
+        # Compiled here rather than at instantiation: both branches above replace `model`.
+        model = maybe_compile(cfg, model)
+
+        # Predictions go to disk through the ScoreWriter injected above, so nothing is returned
+        with torch.no_grad():
+            model.eval()
+            trainer.predict(
+                model=model,
+                dataloaders=datamodule.predict_dataloader(),
+                return_predictions=False,
+            )
     else:
         raise ValueError(f"Unknown stage: {stage}")
 

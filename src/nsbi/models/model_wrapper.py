@@ -92,8 +92,8 @@ class monitored_model(L.LightningModule):
 
         return loss
 
-    def predict_step(self, batch, batch_idx):
-        return self.base_module.predict_step(batch, batch_idx)
+    def predict_step(self, batch, batch_idx, dataloader_idx=0):
+        return self.base_module.predict_step(batch, batch_idx, dataloader_idx)
 
     def configure_optimizers(self):
         return self.base_module.configure_optimizers()

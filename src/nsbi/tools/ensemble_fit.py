@@ -22,7 +22,6 @@ import json
 import pickle
 from pathlib import Path
 
-import hydra
 import numpy as np
 import torch
 from loguru import logger as log
@@ -30,6 +29,7 @@ from omegaconf import DictConfig, OmegaConf
 from torch.utils.data import DataLoader, TensorDataset
 from torchmin import minimize
 
+from nsbi.tools.predict import build_model_from_checkpoint
 from nsbi.utils.lightning_utils import find_latest_checkpoint
 
 # Manifest written by the training phase mapping member index -> its best checkpoint path. Both
@@ -515,8 +515,8 @@ def main_ensemble_fit(cfg: DictConfig) -> None:
     log_r_d_rows = []
     for i, ckpt in enumerate(member_ckpts):
         log.info("Member {}: loading {}", i, ckpt)
-        model = hydra.utils.instantiate(cfg.model)
-        model.load_state_dict(torch.load(ckpt, map_location=device)["state_dict"])
+        # Built from each checkpoint's stored hyperparameters, not from cfg.model
+        model = build_model_from_checkpoint(cfg, ckpt, warn_on_mismatch=(i == 0))
 
         # Cast to the fit dtype
         s_n = _predict_member(model, X_n, batch_size, device).to(fit_dtype)
