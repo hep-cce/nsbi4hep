@@ -72,7 +72,7 @@ class CARL(L.LightningModule):
             "kin": x.detach().cpu(),
         }
 
-    def predict_step(self, batch, batch_idx):
+    def predict_step(self, batch, batch_idx, dataloader_idx=0):
         x = batch if not isinstance(batch, (tuple, list)) else batch[0]
         return self.model(x).flatten()
 

@@ -89,6 +89,9 @@ def from_csv(
     n_rows: int | None = None,
     kinematics: list | None = None,
     ignore_negative_weights: bool = True,
+    momentum_columns: list | None = None,
+    component_columns: list | None = None,
+    weight_column: str = csv_weight,
 ):
     """
     Open an MCFM CSV file containing a physics process.
@@ -104,18 +107,39 @@ def from_csv(
 
     n_rows : int or None, optional
                     Number of rows to read from the CSV file. If None, all rows are read.
+
+    momentum_columns : list or None, optional
+                    4-momentum columns read alongside `kinematics`. Defaults to the full MCFM set;
+                    pass [] for a derived CSV carrying only the training features.
+
+    component_columns : list or None, optional
+                    Matrix-element columns to read. Defaults to the full MCFM set; pass [] for a
+                    file with none. The Process then has no components, so `reweight` and
+                    `check_consistency` do not apply -- but `load_arrays` never uses them.
+
+    weight_column : str or None, optional
+                    Column to read event weights from; defaults to MCFM's "wt". None gives unit
+                    weights, for real data where each row is one observed event.
     """
+
+    momentum_columns = csv_kinematics if momentum_columns is None else momentum_columns
+    component_columns = csv_components if component_columns is None else component_columns
 
     file_paths = Path(file_path).rglob("*.csv") if Path(file_path).is_dir() else [file_path]
     dfs = [pd.read_csv(fp, nrows=n_rows) for fp in file_paths]
     df = pd.concat(dfs, ignore_index=True)
 
     if kinematics is not None:
-        kinematics = df[csv_kinematics + kinematics]
+        kinematics = df[momentum_columns + kinematics]
     else:
-        kinematics = df[csv_kinematics]
-    components = df[csv_components]
-    weights = df[csv_weight]
+        kinematics = df[momentum_columns]
+    components = df[component_columns]
+    # Unit weights, kept as a Series on df's index so Process's positional methods
+    # (sample/filter/shuffle) behave as they do for a real column.
+    if weight_column is None:
+        weights = pd.Series(1.0, index=df.index, name=csv_weight)
+    else:
+        weights = df[weight_column]
 
     # HACK: to avoid negative weights
     # only e.g. O(1)/O(1M) events have infinitesimally-small negative weights due to numerical precision
@@ -139,8 +163,17 @@ def load_arrays(
     ignore_negative_weights: bool = True,
     sample_size: int | None = None,
     random_state: int | None = None,
+    momentum_columns: list | None = None,
+    component_columns: list | None = None,
+    weight_column: str | None = csv_weight,
 ):
     """Load an MCFM CSV and return feature matrix and weights as numpy arrays.
+
+    The three column-set arguments default to MCFM's own layout. Overriding them lets the same
+    loader read a derived CSV of just the training features plus a weight -- e.g. observed events,
+    with no 4-momenta or matrix elements and a differently named weight:
+    ``momentum_columns=[], component_columns=[], weight_column="n"``, or ``weight_column=None`` for
+    unit weights when there is no weight column at all.
 
     Args:
         file_path: Path to the CSV file or directory of CSV files.
@@ -148,8 +181,12 @@ def load_arrays(
         cross_section: If provided, normalize weights to this value in fb.
         n_rows: Number of rows to read. If None, all rows are read.
         ignore_negative_weights: Zero out numerically negative weights.
-        sample_size: Number of events to sample without replacement. If None, all events are used.
+        sample_size: Number of events to sample without replacement. If None, all events are used
+            and row order is preserved.
         random_state: Random seed for sampling reproducibility.
+        momentum_columns: 4-momentum columns to read; [] for a file without them.
+        component_columns: Matrix-element columns to read; [] for a file without them.
+        weight_column: Column to read event weights from; None for unit weights.
 
     Returns:
         Tuple of (X, w) where X has shape (n_events, n_features) and w has shape (n_events,).
@@ -160,6 +197,9 @@ def load_arrays(
         n_rows=n_rows,
         kinematics=features,
         ignore_negative_weights=ignore_negative_weights,
+        momentum_columns=momentum_columns,
+        component_columns=component_columns,
+        weight_column=weight_column,
     )
     if sample_size is not None:
         process = process.sample(sample_size, random_state=random_state)

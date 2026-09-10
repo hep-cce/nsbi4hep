@@ -36,6 +36,11 @@ ensemble:
     tolerance_check_factor: 10.0
     tolerance_check_pct: 5.0
 
+predict:
+  out_dir: "predictions"  # relative paths are anchored to datamodule.data_dir
+  format: "csv"           # output format; see FORMATS in callbacks/prediction_writer.py
+  use_ensemble: false     # score for every trained ensemble member
+
 hpo_tune:
   num_samples: 20
   scheduler:
@@ -93,6 +98,10 @@ datamodule:
   val_size: 0.2
   wi_fit_size: 0.0
   test_size: 0.2
+  # for `stage: predict` only
+  predict_files: null # null scores numerator_events + denominator_events
+  predict_sample_size: null # null means every row, in file order
+  predict_loader: null  # null reuses `loader` above
 
 model:
   _target_: nsbi.models.carl.CARL

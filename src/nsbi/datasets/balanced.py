@@ -29,13 +29,26 @@ class BalancedDataModule(L.LightningDataModule):
         test_size: float = 0.2,
         bootstrap: bool = False,
         num_workers: int = 8,
+        predict_files: list[str] | None = None,
+        predict_sample_size: int | None = None,
+        predict_loader: Any = None,
     ):
         super().__init__()
 
         self.loader = loader
+        # Predict may read files `loader` cannot e.g. a derived CSV of just features and a weight,
+        # rather than full MCFM output. None reuses `loader`.
+        self.predict_loader = predict_loader or loader
 
         self.numerator_file = numerator_events
         self.denominator_file = denominator_events
+
+        # Files scored by the `predict` stage, one output file each. None falls back to the
+        # numerator/denominator files, so a bare `stage=predict` scores what was trained on.
+        self.predict_files = list(predict_files) if predict_files else None
+        # Defaults to all rows, no shuffle to keep the
+        # row-for-row correspondence between an input file and its score file.
+        self.predict_sample_size = predict_sample_size
 
         self.sample_size = sample_size
 
@@ -93,7 +106,16 @@ class BalancedDataModule(L.LightningDataModule):
 
         return (X_train, w_train), (X_val, w_val), wi_fit, (X_test, w_test)
 
+    def _require_data_dir(self):
+        if not Path(self.data_dir).is_dir():
+            raise NotADirectoryError(
+                f"datamodule.data_dir does not exist: {self.data_dir} — create it before running "
+                "(it is not created automatically), or point datamodule.data_dir at an existing "
+                "directory."
+            )
+
     def prepare_data(self):
+        self._require_data_dir()
         X_numerator, w_numerator = self.loader(self.numerator_file, sample_size=self.sample_size, random_state=self.random_state)
         X_denominator, w_denominator = self.loader(self.denominator_file, sample_size=self.sample_size, random_state=self.random_state)
 
@@ -142,7 +164,10 @@ class BalancedDataModule(L.LightningDataModule):
                 pickle.dump(wi_fit_denominator, f)
 
     def setup(self, stage: str):
-        if not (Path(self.data_dir) / "scaler.pkl").exists():
+        self._require_data_dir()
+        # `predict` never rebuilds the split -- it only needs the training
+        # scaler, so a missing one is an error
+        if stage != "predict" and not (Path(self.data_dir) / "scaler.pkl").exists():
             self.prepare_data()
 
         if stage == "fit":
@@ -205,6 +230,25 @@ class BalancedDataModule(L.LightningDataModule):
                 random_state=self.random_state,
             )
 
+        elif stage == "predict":
+            scaler_path = Path(self.data_dir) / "scaler.pkl"
+            if not scaler_path.exists():
+                raise FileNotFoundError(
+                    f"No scaler at {scaler_path}. Prediction must use the scaler the model was "
+                    "trained with; run the fit stage first (or point data_dir at its outputs)."
+                )
+            with open(scaler_path, "rb") as f:
+                self.scaler = pickle.load(f)
+
+            files = self.predict_files or [self.numerator_file, self.denominator_file]
+            self.predict_file_paths = [str(f) for f in files]
+            self.predict_data = []
+            for path in self.predict_file_paths:
+                X, w = self.predict_loader(
+                    path, sample_size=self.predict_sample_size, random_state=self.random_state
+                )
+                self.predict_data.append(PredictDataset(X, w, scaler=self.scaler, path=path))
+
     def train_dataloader(self):
         return DataLoader(self.training_data, batch_size=self.batch_size, num_workers=self.num_workers)
 
@@ -213,6 +257,47 @@ class BalancedDataModule(L.LightningDataModule):
 
     def test_dataloader(self):
         return DataLoader(self.testing_data, batch_size=self.batch_size, num_workers=self.num_workers)
+
+    def predict_dataloader(self):
+        """One sequential loader per predict file; ``ScoreWriter`` writes one score file each.
+
+        Order is preserved (no sampler shuffling) so batch ``k`` of loader ``j`` holds rows
+        ``k * batch_size ...`` of file ``j``.
+        """
+        return [
+            DataLoader(
+                dataset,
+                batch_size=self.batch_size,
+                shuffle=False,
+                num_workers=self.num_workers,
+            )
+            for dataset in self.predict_data
+        ]
+
+
+class PredictDataset(Dataset):
+    """Unshuffled features + event weights for one input file, scaled with the training scaler.
+
+    Yields ``(x, w)``: models read ``batch[0]``, and ``ScoreWriter`` carries ``batch[1]`` into the
+    ``weight`` column, so pairing a score with its event needs no index bookkeeping. ``path``
+    records the source file, which ``ScoreWriter`` reads off the dataset to name its output.
+    """
+
+    def __init__(self, X, w, scaler=None, path=None):
+        super().__init__()
+
+        self.X = scaler.transform(X) if scaler is not None else X
+        self.w = w
+        self.path = path
+
+    def __len__(self):
+        return len(self.X)
+
+    def __getitem__(self, idx):
+        return (
+            torch.as_tensor(self.X[idx], dtype=torch.float32),
+            torch.as_tensor(self.w[idx], dtype=torch.float32),
+        )
 
 
 class BalancedDataset(Dataset):
