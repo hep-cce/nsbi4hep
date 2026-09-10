@@ -4,6 +4,7 @@ do_hpo_tune: false
 do_ensemble_train: false
 do_ensemble_fit: false
 stage: "fit"
+ckpt_path: null   # directory searched for checkpoints by resume/test/predict
 do_compile: false
 
 compile_kwargs:
@@ -20,8 +21,20 @@ ensemble:
     num_workers: 1      # GPU parallel processes per member
     gpus_per_worker: 1  # GPUs per parallel worker process (>1 for fsdp/deepspeed)
   fit:
-    max_iter: 1000  # L-BFGS max iterations
-    eps: 1e-7       # guards log[s/(1-s)] as s -> 1
+    eps: 1e-7           # guards log[s/(1-s)] as s -> 1
+    dtype: "float64"    # precision of the weight fit
+    rescale_fit_weights: false  # divide event weights by their common mean for the wifi fit only
+    method: "l-bfgs"    # torchmin solver
+    options:            # torchmin.minimize options
+      max_iter: 1000
+      disp: 1           # verbosity: 0 silent, 1 final summary, 2 per-iteration
+      gtol: 1e-10
+      xtol: 1e-10
+    # Opt-in diagnostic: re-fit with every tolerance above divided by tolerance_check_factor and
+    # warn if any weight moves by more than tolerance_check_pct %
+    tolerance_check: false
+    tolerance_check_factor: 10.0
+    tolerance_check_pct: 5.0
 
 hpo_tune:
   num_samples: 20
@@ -120,6 +133,8 @@ callbacks:
     mode: "min"
   closure_metrics:
     _target_: nsbi.callbacks.closure_metrics.ClosureMetricsCallback
+    plot: false
+    plot_dir: "closure_plots"   # relative paths are anchored to trainer.default_root_dir
     feature_names:
       [
         "l1_pt",

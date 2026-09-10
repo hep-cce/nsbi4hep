@@ -9,7 +9,7 @@ into a single log-ratio estimator
     log r_S(x) = sum_i w_i f_i(x) + w_const,
 
 where ``f_i(x) = log[s_i/(1 - s_i)]`` is member i's estimate of ``log r_S`` (``s_i`` is its CARL
-sigmoid output) and ``w_const`` is a learned overall offset. 
+sigmoid output) and ``w_const`` is a learned overall offset.
 The weights ``w`` are fit by minimizing the symmetrized
 MLC loss on the held-out ``wi_fit`` split -- data independent of member
 training, as the fit's asymptotics assume.
@@ -26,8 +26,9 @@ import hydra
 import numpy as np
 import torch
 from loguru import logger as log
-from omegaconf import DictConfig
+from omegaconf import DictConfig, OmegaConf
 from torch.utils.data import DataLoader, TensorDataset
+from torchmin import minimize
 
 from nsbi.utils.lightning_utils import find_latest_checkpoint
 
@@ -81,10 +82,11 @@ def _symmetrized_mlc_hessian(w, log_r_n, log_r_d, n_weights, d_weights):
     """
     n_outs = w @ log_r_n
     d_outs = w @ log_r_d
-    return (
-        torch.einsum("ia,ja->ija", log_r_d, log_r_d) * torch.exp(d_outs) * d_weights
-        + torch.einsum("ia,ja->ija", log_r_n, log_r_n) * torch.exp(-n_outs) * n_weights
-    ).sum(-1)
+    # Contract over events directly rather than forming the (M+1, M+1, N) outer-product stack and
+    # summing it: same result, O(M^2) memory instead of O(M^2 N)
+    c_d = torch.exp(d_outs) * d_weights
+    c_n = torch.exp(-n_outs) * n_weights
+    return (log_r_d * c_d) @ log_r_d.T + (log_r_n * c_n) @ log_r_n.T
 
 
 def _symmetrized_mlc_grad_n(w, log_r_n, n_weights):
@@ -117,65 +119,228 @@ def weight_covariance(w, log_r_n, log_r_d, n_weights, d_weights) -> torch.Tensor
     return v @ score_var @ v
 
 
-def _fit_torch_lbfgs(w_init, log_r_n, log_r_d, n_weights, d_weights, max_iter):
-    """Fit the ensemble weights with stock ``torch.optim.LBFGS``.
+def _fit_torchmin(w_init, log_r_n, log_r_d, n_weights, d_weights, method, options):
+    """Fit the ensemble weights with a pytorch-minimize solver.
 
-    ``tolerance_grad``/``tolerance_change`` default to 1e-7/1e-9 and are absolute; with the
-    small-magnitude objective from raw ~O(1e-8) MCFM event weights they can falsely signal
-    convergence after a single step. Zero them and rely on ``max_iter`` + the strong-Wolfe line
-    search to decide when the fit is done. Returns the fitted weights (detached).
+    Returns the fitted weights (detached).
     """
-    w = w_init.clone().requires_grad_(True)
-    optimizer = torch.optim.LBFGS(
-        [w],
-        max_iter=max_iter,
-        line_search_fn="strong_wolfe",
-        tolerance_grad=0.0,
-        tolerance_change=0.0,
-    )
-    step = {"i": 0}
-
-    def closure():
-        optimizer.zero_grad()
-        loss = symmetrized_mlc_loss(w, log_r_n, log_r_d, n_weights, d_weights)
-        loss.backward()
-        step["i"] += 1
-        log.info(
-            "L-BFGS iter {}: loss={:.8f} |grad|max={:.3e}",
-            step["i"],
-            loss.item(),
-            w.grad.abs().max().item(),
-        )
-        return loss
-
-    optimizer.step(closure)
-    return w.detach()
-
-
-def _fit_torchmin(w_init, log_r_n, log_r_d, n_weights, d_weights, max_iter):
-    """Fit the ensemble weights with pytorch-minimize's L-BFGS.
-
-    ``torchmin.minimize(method="l-bfgs")`` uses a scale-robust termination test plus a strong-Wolfe
-    line search, so unlike stock ``torch.optim.LBFGS`` it converges on the raw ~O(1e-8) MCFM weight
-    scale with no tolerance or weight-rescale fixes -- this is the path the ``ensembling.ipynb``
-    tutorial uses. Requires the ``pytorch-minimize`` package (imported lazily so the default
-    ``torch_lbfgs`` path carries no dependency on it). Returns the fitted weights (detached).
-    """
-    from torchmin import minimize
-
+    log.info("torchmin method={} options={}", method, options)
     result = minimize(
         lambda w: symmetrized_mlc_loss(w, log_r_n, log_r_d, n_weights, d_weights),
         w_init,
-        method="l-bfgs",
-        options={"max_iter": max_iter, "disp": False},
+        method=method,
+        options=options,
     )
+    success = getattr(result, "success", None)
     log.info(
-        "torchmin l-bfgs: success={} n_iter={} final loss={:.8f}",
-        getattr(result, "success", "?"),
+        "torchmin {}: success={} n_iter={} final loss={:.8f}",
+        method,
+        "?" if success is None else success,
         getattr(result, "nit", "?"),
         float(result.fun),
     )
-    return result.x.detach()
+    # A failed solve may not necessarily mean a bad fit
+    w_fit = result.x.detach()
+    grad = torch.autograd.functional.jacobian(
+        lambda w: symmetrized_mlc_loss(w, log_r_n, log_r_d, n_weights, d_weights),
+        w_fit,
+    )
+    log.info("Gradient norm at solution: {:.3e}", float(grad.norm()))
+    if success is False:
+        log.warning(
+            "torchmin {} did not converge (status={!r}: {}). Using the last iterate; check the "
+            "gradient norm above and |dw|max below before trusting the weights.",
+            method,
+            getattr(result, "status", "?"),
+            getattr(result, "message", "?"),
+        )
+    return w_fit
+
+
+# Termination-tolerance options across the torchmin solver families. The tolerance check tightens
+# only the ones the user actually set in ensemble.fit.options
+TOLERANCE_KEYS = ("gtol", "xtol", "ftol", "tol")
+
+# Parameters smaller than this fraction of the largest weight are excluded from the percent-change
+_PCT_MAGNITUDE_FLOOR = 1e-6
+
+
+def _check_fit_tolerances(
+    w: torch.Tensor,
+    w_init: torch.Tensor,
+    log_r_n: torch.Tensor,
+    log_r_d: torch.Tensor,
+    n_weights: torch.Tensor,
+    d_weights: torch.Tensor,
+    method: str,
+    options: dict,
+    factor: float,
+    pct_threshold: float,
+) -> None:
+    """Re-fit with tighter tolerances and report whether the weights changed significantly.
+
+    Diagnostic for whether ``ensemble.fit.options``' termination tolerances are tight enough for
+    this objective: divides every tolerance the user set by ``factor`` and solves again from the
+    same init. Restarting from ``w_init`` rather than from ``w`` is deliberate -- continuing from
+    the fitted point would just resume the same descent and under-report the difference, whereas a
+    clean re-run tests where the stopping rule actually lands.
+
+    The verdict is the largest per-parameter change relative to the configured fit,
+    ``100 * |w_tight_i - w_i| / |w_i|``, over the parameters whose magnitude is at least
+    ``_PCT_MAGNITUDE_FLOOR`` of the largest weight. The configured fit is the denominator because
+    it is the one being validated (and saved) -- the re-fit is diagnostic only and is discarded.
+
+    Skipped with a warning if the user set no tolerance option at all, since there is then nothing
+    to tighten.
+
+    Args:
+        w: Weights from the configured fit, shape (M + 1,).
+        w_init: The init the configured fit started from, shape (M + 1,).
+        log_r_n: Per-member log-ratios on numerator events, shape (M + 1, N_n).
+        log_r_d: Per-member log-ratios on denominator events, shape (M + 1, N_d).
+        n_weights: Numerator event weights, shape (N_n,).
+        d_weights: Denominator event weights, shape (N_d,).
+        method: torchmin solver used for the configured fit.
+        options: The configured fit's options, forwarded with its tolerances tightened.
+        factor: Divisor applied to each tolerance option (10 => 10x tighter).
+        pct_threshold: Warn if any weight changes by more than this many percent.
+    """
+    tightened = {k: v / factor for k, v in options.items() if k in TOLERANCE_KEYS}
+    if not tightened:
+        log.warning(
+            "Tolerance check requested but ensemble.fit.options sets none of {}; nothing to "
+            "tighten, skipping. Set an explicit tolerance to enable the check.",
+            TOLERANCE_KEYS,
+        )
+        return
+
+    log.info("Tolerance check: re-fitting with {}x tighter {}", factor, tightened)
+    w_tight = _fit_torchmin(
+        w_init, log_r_n, log_r_d, n_weights, d_weights, method, {**options, **tightened}
+    )
+
+    with torch.no_grad():
+        loss = symmetrized_mlc_loss(w, log_r_n, log_r_d, n_weights, d_weights).item()
+        loss_tight = symmetrized_mlc_loss(w_tight, log_r_n, log_r_d, n_weights, d_weights).item()
+
+    w_np = np.asarray(w.detach().cpu().numpy(), dtype=float)
+    w_tight_np = np.asarray(w_tight.detach().cpu().numpy(), dtype=float)
+    dw = np.abs(w_tight_np - w_np)
+    scale = np.abs(w_np).max()
+
+    # Scale-relative change and loss change: always well-defined, so they stay informative even for
+    # the near-zero parameters the per-parameter percent below has to exclude.
+    log.info(
+        "Tolerance check: |dw|max={:.3e} ({:.3f}% of max|w|), loss delta={:.3e} ({:.3f}%)",
+        dw.max(),
+        100.0 * dw.max() / scale if scale > 0 else float("inf"),
+        loss_tight - loss,
+        100.0 * abs(loss_tight - loss) / abs(loss) if loss != 0 else float("inf"),
+    )
+
+    keep = np.abs(w_np) >= _PCT_MAGNITUDE_FLOOR * scale
+    if not keep.any():
+        log.warning("Tolerance check: every fitted weight is ~0; no relative change to compare.")
+        return
+    # -inf on the excluded parameters so they cannot win the argmax below.
+    pct = np.full(w_np.shape, -np.inf)
+    pct[keep] = 100.0 * dw[keep] / np.abs(w_np[keep])
+    arg = int(np.argmax(pct))
+    log.info(
+        "Tolerance check: max relative change {:.3f}% at parameter {} ({} excluded as ~0)",
+        pct[arg],
+        arg,
+        int((~keep).sum()),
+    )
+    if pct[arg] > pct_threshold:
+        log.warning(
+            "Tolerance check FAILED: parameter {} changed {:.3f}% (> {}%) when tolerances were "
+            "tightened {}x -- the configured tolerances may not be tight enough for this "
+            "objective. Check the two torchmin summaries above: a re-fit that stopped on max_iter "
+            "rather than on tolerance is truncated, not disagreeing.",
+            arg,
+            pct[arg],
+            pct_threshold,
+            factor,
+        )
+        # Dump both fits side by side so the disagreement can be traced to specific members rather
+        # than inferred from the single worst number. Only on failure -- a passing check has
+        # nothing to debug.
+        log.warning("Per-parameter comparison (configured fit -> {}x tighter re-fit):", factor)
+        n_params = w_np.size
+        for i in range(n_params):
+            label = "const" if i == n_params - 1 else str(i)
+            change = f"{pct[i]:.3f}%" if keep[i] else "excluded (~0)"
+            flag = "  <-- over threshold" if keep[i] and pct[i] > pct_threshold else ""
+            log.warning(
+                "  w[{:>5}] {:+.9f} -> {:+.9f}  diff={:+.3e}  {}{}",
+                label,
+                w_np[i],
+                w_tight_np[i],
+                w_tight_np[i] - w_np[i],
+                change,
+                flag,
+            )
+    else:
+        log.info(
+            "Tolerance check passed: every weight changed < {}% under {}x tighter tolerances.",
+            pct_threshold,
+            factor,
+        )
+
+
+def _log_fit_summary(w: torch.Tensor, cov: torch.Tensor, size: int) -> None:
+    """Log the fitted weights, uncertainties, and sanity checks.
+
+    Args:
+        w: Fitted weights, shape (M + 1,) -- M member weights plus the constant offset.
+        cov: Asymptotic covariance of ``w`` from ``weight_covariance``, shape (M + 1, M + 1).
+        size: Number of members M.
+    """
+    w_np = np.asarray(w.detach().cpu().numpy(), dtype=float)
+    cov_np = np.asarray(cov.detach().cpu().numpy(), dtype=float)
+    n = size + 1
+
+    if not np.all(np.isfinite(w_np)):
+        log.warning("Fitted weights contain non-finite values (NaN/Inf): {}", w_np)
+    if not np.all(np.isfinite(cov_np)):
+        log.warning("Weight covariance contains non-finite values (NaN/Inf).")
+
+    diag = cov_np.diagonal() if cov_np.shape == (n, n) else np.full(n, np.nan)
+    err = np.sqrt(np.clip(diag, 0.0, None))
+
+    log.info("Fitted weights (+/- sqrt of covariance diagonal):")
+    for i in range(size):
+        log.info("  w[{:>2}] = {:+.6f} +/- {:.6f}", i, w_np[i], err[i])
+    log.info("  w[const] = {:+.6f} +/- {:.6f}", w_np[size], err[size])
+
+    member_w = w_np[:size]
+    log.info(
+        "Member weight summary: sum={:+.6f} mean={:+.6f} std={:.6f} min={:+.6f} max={:+.6f}",
+        member_w.sum(),
+        member_w.mean(),
+        member_w.std(),
+        member_w.min(),
+        member_w.max(),
+    )
+
+    # The fit starts from uniform 1/M members with a zero offset. Weights still sitting there mean
+    # the optimizer never took a step -- the fit ran but produced nothing.
+    w_init = np.ones(n) / size
+    w_init[-1] = 0.0
+    if np.allclose(w_np, w_init, atol=1e-6):
+        log.warning(
+            "Fitted weights equal the optimizer init (uniform 1/M, offset 0) -- the optimizer did "
+            "not move; treat this as a failed/no-op fit, not a real result."
+        )
+    elif np.allclose(member_w, 1.0 / size, atol=1e-6):
+        log.warning(
+            "Member weights are all ~1/M though the offset moved -- inspect the fit closely."
+        )
+
+    if cov_np.shape != (n, n):
+        log.warning("Weight covariance shape {} != ({}, {}).", cov_np.shape, n, n)
+        return
 
 
 def _predict_member(model, X: np.ndarray, batch_size: int, device: torch.device) -> torch.Tensor:
@@ -297,9 +462,23 @@ def main_ensemble_fit(cfg: DictConfig) -> None:
     ensemble_cfg = cfg.get("ensemble", {})
     size = ensemble_cfg.get("size", 16)
     fit_cfg = ensemble_cfg.get("fit", {})
-    max_iter = fit_cfg.get("max_iter", 1000)
+    method = fit_cfg.get("method", "l-bfgs")
+    options: dict = {}
+    user_options = fit_cfg.get("options", None)
+    if user_options is not None:
+        options.update(
+            OmegaConf.to_container(user_options, resolve=True)
+            if OmegaConf.is_config(user_options)
+            else dict(user_options)
+        )
     # eps guards log[s/(1 - s)] against s -> 1
     eps = fit_cfg.get("eps", 1e-7)
+    rescale_fit_weights = fit_cfg.get("rescale_fit_weights", False)
+    # Opt-in diagnostic: re-fit with tighter tolerances and compare (see _check_fit_tolerances).
+    tolerance_check = fit_cfg.get("tolerance_check", False)
+    tolerance_check_factor = fit_cfg.get("tolerance_check_factor", 10.0)
+    tolerance_check_pct = fit_cfg.get("tolerance_check_pct", 5.0)
+    fit_dtype = getattr(torch, str(fit_cfg.get("dtype", "float64")))
 
     data_dir = cfg.datamodule.get("data_dir", "./")
     batch_size = cfg.datamodule.get("batch_size", 1024)
@@ -339,23 +518,23 @@ def main_ensemble_fit(cfg: DictConfig) -> None:
         model = hydra.utils.instantiate(cfg.model)
         model.load_state_dict(torch.load(ckpt, map_location=device)["state_dict"])
 
-        s_n = _predict_member(model, X_n, batch_size, device)
-        s_d = _predict_member(model, X_d, batch_size, device)
+        # Cast to the fit dtype
+        s_n = _predict_member(model, X_n, batch_size, device).to(fit_dtype)
+        s_d = _predict_member(model, X_d, batch_size, device).to(fit_dtype)
         log_r_n_rows.append(torch.log(s_n / (1 - s_n + eps)))
         log_r_d_rows.append(torch.log(s_d / (1 - s_d + eps)))
 
     # Stack members into (M, N) and append the all-ones constant row -> (M + 1, N). The trailing
     # weight w[-1] then acts as an overall additive offset on log r.
-    log_r_n = torch.ones((size + 1, log_r_n_rows[0].shape[0]), device=device)
+    log_r_n = torch.ones((size + 1, log_r_n_rows[0].shape[0]), device=device, dtype=fit_dtype)
     log_r_n[:-1, :] = torch.stack(log_r_n_rows, dim=0)
-    log_r_d = torch.ones((size + 1, log_r_d_rows[0].shape[0]), device=device)
+    log_r_d = torch.ones((size + 1, log_r_d_rows[0].shape[0]), device=device, dtype=fit_dtype)
     log_r_d[:-1, :] = torch.stack(log_r_d_rows, dim=0)
 
-    n_weights = torch.as_tensor(np.asarray(w_n), dtype=torch.float32, device=device)
-    d_weights = torch.as_tensor(np.asarray(w_d), dtype=torch.float32, device=device)
+    n_weights = torch.as_tensor(np.asarray(w_n), dtype=fit_dtype, device=device)
+    d_weights = torch.as_tensor(np.asarray(w_d), dtype=fit_dtype, device=device)
 
-    rescale_weights = False
-    if rescale_weights:
+    if rescale_fit_weights:
         weight_scale = torch.cat([n_weights, d_weights]).mean()
         n_weights = n_weights / weight_scale
         d_weights = d_weights / weight_scale
@@ -364,9 +543,9 @@ def main_ensemble_fit(cfg: DictConfig) -> None:
             weight_scale.item(),
         )
 
-    # Start L-BFGS from uniform 1/M member weights with the constant offset at 0, 
+    # Start L-BFGS from uniform 1/M member weights with the constant offset at 0,
     # then descend on the symmetrized MLC loss.
-    w_init = torch.ones(size + 1, device=device) / size
+    w_init = torch.ones(size + 1, device=device, dtype=fit_dtype) / size
     w_init[-1] = 0.0
 
     # Snapshot the init loss so we can report how far the fit actually moved the weights: if |Δw|max
@@ -376,14 +555,7 @@ def main_ensemble_fit(cfg: DictConfig) -> None:
         init_loss = symmetrized_mlc_loss(w_init, log_r_n, log_r_d, n_weights, d_weights)
     log.info("Initial symmetrized MLC loss: {:.6f}", init_loss.item())
 
-    # Which L-BFGS backend fits the weights
-    optimizer_backend = "torchmin"
-    if optimizer_backend == "torchmin":
-        w = _fit_torchmin(w_init, log_r_n, log_r_d, n_weights, d_weights, max_iter)
-    elif optimizer_backend == "torch_lbfgs":
-        w = _fit_torch_lbfgs(w_init, log_r_n, log_r_d, n_weights, d_weights, max_iter)
-    else:
-        raise ValueError(f"Unknown fit optimizer_backend {optimizer_backend!r}")
+    w = _fit_torchmin(w_init, log_r_n, log_r_d, n_weights, d_weights, method, options)
 
     with torch.no_grad():
         final_loss = symmetrized_mlc_loss(w, log_r_n, log_r_d, n_weights, d_weights)
@@ -404,6 +576,24 @@ def main_ensemble_fit(cfg: DictConfig) -> None:
         cov.abs().max().item(),
         cov.diag().sum().item(),
     )
+
+    _log_fit_summary(w, cov, size)
+
+    # Diagnostic only, and after everything the saved result depends on: w above stays what gets
+    # written to weights.pkl regardless of what the tighter re-fit finds.
+    if tolerance_check:
+        _check_fit_tolerances(
+            w,
+            w_init,
+            log_r_n,
+            log_r_d,
+            n_weights,
+            d_weights,
+            method,
+            options,
+            tolerance_check_factor,
+            tolerance_check_pct,
+        )
 
     w_fitted = w.detach().cpu().numpy()
     out_path = ensemble_dir / "weights.pkl"

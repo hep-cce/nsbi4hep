@@ -11,7 +11,10 @@ CONFIG_YAML=/home/nkang/workdir/nsbi4hep/configs/conf_tune_carl.yaml
 
 cd $NSBI_SOURCE_PATH
 
-module use /soft/modulefiles; module load conda; conda activate base
+#module use /soft/modulefiles
+#module load conda
+source /soft/applications/conda/2025-09-25/mconda3/etc/profile.d/conda.sh
+conda activate base
 source $NSBI_SOURCE_PATH/.venv/bin/activate
 
 NODELIST=$(cat $PBS_NODEFILE | sort | uniq)

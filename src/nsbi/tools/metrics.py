@@ -38,8 +38,8 @@ def plot_closure_grid(
     predicted_weights,
     base_weights,
     binning,
-    ncols=3,
-    ratio_ylim=(0.8, 1.2),
+    ncols=4,
+    ratio_ylim=(0.5, 2),
     log_scale=False,
     figsize=(16, 16),
     title_prefix="Reweighting closure:",
@@ -78,9 +78,15 @@ def plot_closure_grid(
         ax_ratio = axes[row + 1, col]
 
         # Main plot
-        ax_main.step(centers, hist_base, where="mid", label="BKG", color="black", linestyle="--")
-        ax_main.step(centers, hist_truth, where="mid", label="BKG->SBI (truth)", color="blue")
-        ax_main.step(centers, hist_pred, where="mid", label="BKG->SBI (NN prediction)", color="red")
+        # base = denominator sample (label 0), truth = numerator sample (label 1), pred = the
+        # denominator reweighted by r_hat -- named after the split, not a specific physics process.
+        ax_main.step(
+            centers, hist_base, where="mid", label="denominator", color="black", linestyle="--"
+        )
+        ax_main.step(centers, hist_truth, where="mid", label="numerator (truth)", color="blue")
+        ax_main.step(
+            centers, hist_pred, where="mid", label="numerator (NN prediction)", color="red"
+        )
         if log_scale:
             ax_main.set_yscale("log")
         ax_main.set_title(f"{title_prefix} {name}")

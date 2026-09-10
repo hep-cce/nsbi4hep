@@ -7,13 +7,14 @@ signal-strength (mu) test-statistic scan, then
 saves the [0, 1]-zoomed -2 log lambda curve with the 1sigma/2sigma lines and the interpolated
 interval bounds.
 
+Ensemble size and every network's architecture are read from the artifacts themselves
+(weights.pkl records the member count; Lightning checkpoints store the CARL hyperparameters),
+so only paths and physics choices are passed on the command line.
+
 Example:
     python3 mu_inference_example.py \
         --ensemble-dir /home/nkang/test_notebook/storage/ensemble \
         --ensemble-scaler /home/nkang/test_notebook/data/scaler.pkl \
-        --size 8 \
-        --n-layers 2 \
-        --n-nodes 8 \
         --sbi-ckpt /home/nkang/wifi_fit_bundle/sbi_base_model/epoch=76-train_loss=0.69.ckpt \
         --sbi-scaler /home/nkang/wifi_fit_bundle/sbi_base_model/scaler.pkl \
         --obs-csv /eagle/ScalingHEPAI/test_Nathan/wifi_data/obs_data/mu_x.csv \
@@ -48,14 +49,9 @@ def parse_args() -> argparse.Namespace:
     # Framework ensemble (trained + fit by do_ensemble_train/do_ensemble_fit).
     p.add_argument("--ensemble-dir", required=True, help="<storage_path>/ensemble (members + weights.pkl)")
     p.add_argument("--ensemble-scaler", required=True, help="scaler.pkl the members were trained with")
-    p.add_argument("--size", type=int, default=16, help="number of ensemble members M")
-    p.add_argument("--n-layers", type=int, default=3, help="member CARL n_layers (must match training)")
-    p.add_argument("--n-nodes", type=int, default=64, help="member CARL n_nodes (must match training)")
     # Separately trained SBI/bkg network (the r_SBI estimator; a bigger CARL) + its own scaler.
     p.add_argument("--sbi-ckpt", required=True, help="checkpoint for the SBI/bkg CARL network")
     p.add_argument("--sbi-scaler", required=True, help="scaler pickle for the SBI/bkg network")
-    p.add_argument("--sbi-layers", type=int, default=16, help="SBI network n_layers")
-    p.add_argument("--sbi-nodes", type=int, default=1024, help="SBI network n_nodes")
     # Physics data.
     p.add_argument("--obs-csv", required=True, help="observed events CSV (features + column 'n')")
     p.add_argument("--xs-json", required=True, help="cross-section JSON (keys sig/int/sbi/bkg)")
@@ -67,9 +63,19 @@ def parse_args() -> argparse.Namespace:
 
 
 def load_scaler(path: str):
-    """Unpickle a fitted sklearn StandardScaler."""
+    """Unpickle a fitted sklearn StandardScaler and check it matches the FEATURES list.
+
+    The scaler was fit on a bare array, so it stores only a feature count — the ordering of
+    FEATURES is still an implicit contract with the training config; this catches count drift.
+    """
     with open(path, "rb") as f:
-        return pickle.load(f)
+        scaler = pickle.load(f)
+    if scaler.n_features_in_ != len(FEATURES):
+        raise ValueError(
+            f"{path} was fit on {scaler.n_features_in_} features, "
+            f"but this script's FEATURES list has {len(FEATURES)}"
+        )
+    return scaler
 
 
 def member_ckpts(ensemble_dir: str, size: int) -> list[str]:
@@ -91,6 +97,21 @@ def member_ckpts(ensemble_dir: str, size: int) -> list[str]:
             raise FileNotFoundError(f"No checkpoint for member {i} under {ensemble_dir}")
         ckpts.append(max(matches, key=os.path.getctime))
     return ckpts
+
+
+def load_carl(ckpt_path: str) -> CARL:
+    """Load a CARL checkpoint directly from its stored hyperparameters and state dict.
+
+    Bypasses ``CARL.load_from_checkpoint`` because checkpoints trained under LightningCLI carry an
+    ``_instantiator`` key in their hyperparameters, which makes Lightning route construction
+    through jsonargparse (and crash when ``jsonargparse[signatures]`` isn't installed).
+    """
+    ckpt = torch.load(ckpt_path, map_location="cpu", weights_only=False)
+    hparams = dict(ckpt.get("hyper_parameters", {}))
+    hparams.pop("_instantiator", None)
+    model = CARL(**hparams)
+    model.load_state_dict(ckpt["state_dict"])
+    return model
 
 
 def predict(model: CARL, scaler, X: np.ndarray, batch_size: int = 1024) -> torch.Tensor:
@@ -126,8 +147,8 @@ def plot_curve(mu: torch.Tensor, t: torch.Tensor, lower: float, upper: float, ou
     plt.ylim(0, 10)
     plt.axhline(1.0, color="tab:green", linestyle="--", label=r"$1\sigma$")
     plt.axhline(4.0, color="tab:orange", linestyle="--", label=r"$2\sigma$")
-    plt.axvline(lower, color="tab:red", linestyle="--", label=f"Lower bound: {lower:.2f}")
-    plt.axvline(upper, color="tab:purple", linestyle="--", label=f"Upper bound: {upper:.2f}")
+    plt.axvline(lower, color="tab:red", linestyle="--", label=f"Lower bound: {lower:.4f}")
+    plt.axvline(upper, color="tab:purple", linestyle="--", label=f"Upper bound: {upper:.4f}")
     if title:
         plt.title(title)
     plt.xlabel(r"$\mu$")
@@ -141,22 +162,22 @@ def main() -> None:
     """Run the mu scan and save the confidence-interval plot."""
     args = parse_args()
 
-    # --- Framework ensemble: scaler, members, fitted weights ---------------------------------
-    # The members were trained on features transformed by THIS scaler
-    scaler_fw = load_scaler(args.ensemble_scaler)
-    models_fw = []
-    for ckpt in member_ckpts(args.ensemble_dir, args.size):
-        m = CARL(n_features=len(FEATURES), n_layers=args.n_layers, n_nodes=args.n_nodes, learning_rate=1e-3)
-        m.load_state_dict(torch.load(ckpt, map_location="cpu")["state_dict"])
-        models_fw.append(m)
+    # --- Framework ensemble: fitted weights, scaler, members ---------------------------------
+    # weights.pkl is loaded first: its "size" says how many members the fit combined, so the
+    # checkpoints resolved below are exactly the ones w was fit against.
     with open(os.path.join(args.ensemble_dir, "weights.pkl"), "rb") as f:
         wf = pickle.load(f)
     w_fw = torch.tensor(wf["w"], dtype=torch.float32)  # (M + 1,): members + constant offset
     eps = wf["eps"]
+    size = wf["size"]
+
+    # The members were trained on features transformed by THIS scaler. Architecture comes from
+    # each checkpoint's stored hyperparameters (CARL calls save_hyperparameters()).
+    scaler_fw = load_scaler(args.ensemble_scaler)
+    models_fw = [load_carl(ckpt) for ckpt in member_ckpts(args.ensemble_dir, size)]
 
     # --- SBI/bkg network (r_SBI estimator) + its own scaler -----------------------------------
-    sbi = CARL(n_features=len(FEATURES), n_layers=args.sbi_layers, n_nodes=args.sbi_nodes, learning_rate=1e-5)
-    sbi.load_state_dict(torch.load(args.sbi_ckpt, map_location="cpu")["state_dict"])
+    sbi = load_carl(args.sbi_ckpt)
     scaler_sbi = load_scaler(args.sbi_scaler)
 
     # --- Observed data + cross sections -------------------------------------------------------
@@ -196,7 +217,7 @@ def main() -> None:
 
     # --- Before: unadjusted interval (ignores r_S estimation uncertainty) ----------------------
     t_before, lo0, hi0 = interval_bounds(t_rate + t_shape, mu)
-    print(f"[before] Lower {lo0:.2f}  Upper {hi0:.2f}  stddev {(hi0 - lo0) / 2:.2f}")
+    print(f"[before] Lower {lo0:.4f}  Upper {hi0:.4f}  stddev {(hi0 - lo0) / 2:.4f}")
     plot_curve(mu, t_before, lo0, hi0, out_before, title="wifi ensemble (before adjustment)")
     print(f"Saved before-adjustment plot to {out_before}")
 
@@ -211,7 +232,10 @@ def main() -> None:
               "Only the before-adjustment plot was produced.")
         return
 
-    cov_t = torch.tensor(cov, dtype=torch.float32)  # notebook casts C to float for the product
+    # C comes out of the fit in float64 (weight_covariance computes the V U V sandwich in double
+    # because the inverses are ill-conditioned); keep it there rather than throwing that away for
+    # the product.
+    cov_t = torch.tensor(cov, dtype=torch.float64)
     log_r_members = torch.log(s / (1 - s + eps))    # (M, N_obs): per-member log r on the obs data
 
     def log_likelihood(mu_val, w):
@@ -227,14 +251,14 @@ def main() -> None:
     # sigma^2_MLE = -1 / d^2 logL/dmu^2 ; A_i = d^2 logL / (dmu dw_i), both at (mu_hat, w).
     sigma2_mle = -1.0 / torch.func.hessian(log_likelihood, argnums=0)(mu_hat, w_fw)
     a_i = torch.func.jacfwd(torch.func.jacrev(log_likelihood, argnums=0), argnums=1)(mu_hat, w_fw)
-    adjustment = 1 + sigma2_mle * (a_i @ cov_t @ a_i.T)[0, 0]
+    a_i64 = a_i.double()
+    adjustment = 1 + sigma2_mle * (a_i64 @ cov_t @ a_i64.T)[0, 0]
     adj = float(adjustment)
 
     t_after, lo1, hi1 = interval_bounds(t_rate + t_shape / adjustment, mu)
-    print(f"[after]  Lower {lo1:.2f}  Upper {hi1:.2f}  stddev {(hi1 - lo1) / 2:.2f}")
-    #
+    print(f"[after]  Lower {lo1:.4f}  Upper {hi1:.4f}  stddev {(hi1 - lo1) / 2:.4f}")
     widening = (hi1 - lo1) / (hi0 - lo0) - 1
-    print(f"adjustment = {adj:.4f}  ->  interval widened by {widening * 100:.0f}%")
+    print(f"adjustment = {adj:.4f}  ->  interval widened by {widening * 100:.2f}%")
     plot_curve(mu, t_after, lo1, hi1, out_after, title="wifi ensemble (uncertainty-adjusted)")
     print(f"Saved after-adjustment plot to {out_after}")
 

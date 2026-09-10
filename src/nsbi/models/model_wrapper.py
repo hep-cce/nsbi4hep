@@ -1,5 +1,5 @@
 import lightning as L
-import tools.metrics as tools
+import nsbi.tools.metrics as tools
 import torch
 
 
