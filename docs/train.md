@@ -301,9 +301,9 @@ bootstrapped training draws, then fit a linear combination of their log-ratios o
 The combined estimator is
 
 $$
-\log r(x) = \sum_i w_i f_i(x) + w_\text{const},
+\mathrm{log}\, r(x) = \sum_i w_i f_i(x) + w_{\mathrm{const}},
 \qquad
-f_i(x) = \log\!\left[\frac{s_i(x)}{1 - s_i(x)}\right]
+f_i(x) = \mathrm{log}\left[\frac{s_i(x)}{1 - s_i(x)}\right]
 $$
 
 where
@@ -316,7 +316,7 @@ where
   the numerator rather than the denominator hypothesis.
 - $f_i(x)$ — that member's log-ratio, the logit of $s_i(x)$.
 - $w_i$ — the fitted weight on member $i$.
-- $w_\text{const}$ — a single fitted offset.
+- $w_{\mathrm{const}}$ — a single fitted offset.
 
 It is a two-phase pipeline. **Training requires `datamodule.wi_fit_size > 0`**, or the fit will have
 no data to fit on.
