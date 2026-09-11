@@ -101,7 +101,9 @@ datamodule:
   # for `stage: predict` only
   predict_files: null # null scores numerator_events + denominator_events
   predict_sample_size: null # null means every row, in file order
-  predict_loader: null  # null reuses `loader` above
+  # null reuses `loader` above, which samples randomly if sample_size is set
+  # point this at an order-preserving loader (e.g. mcfm.load_arrays_ordered)
+  predict_loader: null
 
 model:
   _target_: nsbi.models.carl.CARL
