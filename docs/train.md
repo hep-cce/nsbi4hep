@@ -301,7 +301,7 @@ bootstrapped training draws, then fit a linear combination of their log-ratios o
 The combined estimator is
 
 $$
-\mathrm{log}\, r(x) = \sum_i w_i f_i(x) + w_{\mathrm{const}},
+\mathrm{log}\ r(x) = \sum_i w_i f_i(x) + w_{\mathrm{const}},
 \qquad
 f_i(x) = \mathrm{log}\left[\frac{s_i(x)}{1 - s_i(x)}\right]
 $$
