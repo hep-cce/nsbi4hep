@@ -1,5 +1,9 @@
 # Scaling Neural Simulation-Based Inference at High Performance Computing Centers for LHC analysis
 
+This framework covers the steps related to training, validating and evaluating the neural
+likelihood-ratio estimators at scale for an NSBI analysis. Downstream tasks such as the statistical
+inference are not currently intended to be included as part of the framework.
+
 ## Features
 
 - **One config file.** A single OmegaConf YAML describes the data, model, trainer, loggers
