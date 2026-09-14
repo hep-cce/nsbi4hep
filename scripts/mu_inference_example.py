@@ -37,19 +37,37 @@ from torch.utils.data import DataLoader, TensorDataset
 from nsbi.models.carl import CARL
 
 FEATURES = [
-    "l1_pt", "l1_eta", "l1_phi", "l1_energy",
-    "l2_pt", "l2_eta", "l2_phi", "l2_energy",
-    "l3_pt", "l3_eta", "l3_phi", "l3_energy",
-    "l4_pt", "l4_eta", "l4_phi", "l4_energy",
+    "l1_pt",
+    "l1_eta",
+    "l1_phi",
+    "l1_energy",
+    "l2_pt",
+    "l2_eta",
+    "l2_phi",
+    "l2_energy",
+    "l3_pt",
+    "l3_eta",
+    "l3_phi",
+    "l3_energy",
+    "l4_pt",
+    "l4_eta",
+    "l4_phi",
+    "l4_energy",
 ]
 
 
 def parse_args() -> argparse.Namespace:
     """Parse command-line paths and hyperparameters for the mu scan."""
-    p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    p = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     # Framework ensemble (trained + fit by do_ensemble_train/do_ensemble_fit).
-    p.add_argument("--ensemble-dir", required=True, help="<storage_path>/ensemble (members + weights.pkl)")
-    p.add_argument("--ensemble-scaler", required=True, help="scaler.pkl the members were trained with")
+    p.add_argument(
+        "--ensemble-dir", required=True, help="<storage_path>/ensemble (members + weights.pkl)"
+    )
+    p.add_argument(
+        "--ensemble-scaler", required=True, help="scaler.pkl the members were trained with"
+    )
     # Separately trained SBI/bkg network (the r_SBI estimator; a bigger CARL) + its own scaler.
     p.add_argument("--sbi-ckpt", required=True, help="checkpoint for the SBI/bkg CARL network")
     p.add_argument("--sbi-scaler", required=True, help="scaler pickle for the SBI/bkg network")
@@ -58,20 +76,43 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--xs-json", required=True, help="cross-section JSON (keys sig/int/sbi/bkg)")
     p.add_argument("--lumi", type=float, default=300.0, help="integrated luminosity [1/fb]")
     p.add_argument("--mu-max", type=float, default=4.0, help="upper edge of the mu scan grid")
-    p.add_argument("--mu-points", type=int, default=401, help="number of grid points in the mu scan")
+    p.add_argument(
+        "--mu-points", type=int, default=401, help="number of grid points in the mu scan"
+    )
     p.add_argument("--out", default="mu_interval_framework.png", help="output plot path")
-    p.add_argument("--fixed-mask", action=argparse.BooleanOptionalAction, default=True,
-                   help="exclude negative-density events once, for all mu, instead of letting "
-                        "nansum drop a different set at each mu (default: on)")
-    p.add_argument("--mask-mu-range", default="0,1", metavar="LO,HI",
-                   help="mu range the fixed mask keeps pole-free (default 0,1)")
-    p.add_argument("--list-masked", action="store_true",
-                   help="print each masked event's ratios and its negative-density mu window")
+    p.add_argument(
+        "--fixed-mask",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="exclude negative-density events once, for all mu, instead of letting "
+        "nansum drop a different set at each mu (default: on)",
+    )
+    p.add_argument(
+        "--mask-mu-range",
+        default="0,1",
+        metavar="LO,HI",
+        help="mu range the fixed mask keeps pole-free (default 0,1)",
+    )
+    p.add_argument(
+        "--list-masked",
+        action="store_true",
+        help="print each masked event's ratios and its negative-density mu window",
+    )
     # The adjustment is evaluated at a single mu and is sensitive to it.
-    p.add_argument("--mu-hat", type=float, default=None,
-                   help="evaluate the adjustment here instead of at the refined MLE")
-    p.add_argument("--scan-adjustment", nargs="?", const="0.20,0.35,31", default=None,
-                   metavar="LO,HI,N", help="tabulate the adjustment across a mu range")
+    p.add_argument(
+        "--mu-hat",
+        type=float,
+        default=None,
+        help="evaluate the adjustment here instead of at the refined MLE",
+    )
+    p.add_argument(
+        "--scan-adjustment",
+        nargs="?",
+        const="0.20,0.35,31",
+        default=None,
+        metavar="LO,HI,N",
+        help="tabulate the adjustment across a mu range",
+    )
     return p.parse_args()
 
 
@@ -239,9 +280,7 @@ def report_masked_events(
         return
 
     # The criterion itself: masked exactly when this minimum is <= 0.
-    mu_min, n_min = density_minimum(
-        r_S[idx], r_sbi[idx], xs_sig, xs_sbi, xs_bkg, mask_lo, mask_hi
-    )
+    mu_min, n_min = density_minimum(r_S[idx], r_sbi[idx], xs_sig, xs_sbi, xs_bkg, mask_lo, mask_hi)
     # Context: the roots bounding the negative window.
     a = xs_sig * r_S[idx]
     b = xs_sbi * r_sbi[idx] - xs_sig * r_S[idx] - xs_bkg
@@ -388,8 +427,8 @@ def main() -> None:
 
     # --- Ensembled log r_S ---------------------------------------------------------------------
     s = torch.stack([predict(m, scaler_fw, X_obs) for m in models_fw], dim=0)  # (M, N_obs)
-    log_r_members = torch.log(s / (1 - s + eps))   # (M, N_obs): per-member log r on the obs data
-    r_S = torch.exp(w_fw[:-1] @ log_r_members + w_fw[-1])                      # wifi ensemble
+    log_r_members = torch.log(s / (1 - s + eps))  # (M, N_obs): per-member log r on the obs data
+    r_S = torch.exp(w_fw[:-1] @ log_r_members + w_fw[-1])  # wifi ensemble
     s_sbi = predict(sbi, scaler_sbi, X_obs)
     r_sbi = s_sbi / (1 - s_sbi)
 
@@ -406,8 +445,16 @@ def main() -> None:
             )
             if args.list_masked:
                 report_masked_events(
-                    keep, log_r_members, r_S, r_sbi, n_obs,
-                    xs_sig, xs_sbi, xs_bkg, mask_lo, mask_hi,
+                    keep,
+                    log_r_members,
+                    r_S,
+                    r_sbi,
+                    n_obs,
+                    xs_sig,
+                    xs_sbi,
+                    xs_bkg,
+                    mask_lo,
+                    mask_hi,
                 )
             log_r_members = log_r_members[:, keep]
             r_S, r_sbi, n_obs = r_S[keep], r_sbi[keep], n_obs[keep]
@@ -444,8 +491,10 @@ def main() -> None:
     # report the (over-confident) before-adjustment interval.
     cov = wf.get("cov")
     if cov is None:
-        print("weights.pkl has no 'cov'; re-run the fit to enable the uncertainty adjustment. "
-              "Only the before-adjustment plot was produced.")
+        print(
+            "weights.pkl has no 'cov'; re-run the fit to enable the uncertainty adjustment. "
+            "Only the before-adjustment plot was produced."
+        )
         return
 
     # C comes out of the fit in float64 (weight_covariance computes the V U V sandwich in double

@@ -1,8 +1,8 @@
 """Stream per-event scores to disk during the ``predict`` stage.
 
-One file per predict dataloader (i.e. per input file), written batch by batch. Rows come out in input
-order -- the predict dataloaders are sequential and unshuffled -- so score row ``k`` is input row
-``k`` and the two join by row number.
+One file per predict dataloader (i.e. per input file), written batch by batch. Rows come out in
+input order -- the predict dataloaders are sequential and unshuffled -- so score row ``k`` is input
+row ``k`` and the two join by row number.
 
 The on-disk format is selected by ``predict.format`` and handled by a backend registered in
 ``FORMATS``. Only ``"csv"`` exists today; a new format is a class with the four-method interface of
@@ -81,8 +81,8 @@ class ScoreWriter(BasePredictionWriter):
 
         if format not in FORMATS:
             raise ValueError(
-                f"Unknown predict format {format!r}; supported: {sorted(FORMATS)}. Add a backend to "
-                "nsbi.callbacks.prediction_writer.FORMATS to support another."
+                f"Unknown predict format {format!r}; supported: {sorted(FORMATS)}. "
+                "Add a backend to nsbi.callbacks.prediction_writer.FORMATS to support another."
             )
         self.out_dir = Path(out_dir)
         self.format = format

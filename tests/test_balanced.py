@@ -2,9 +2,9 @@ import pickle
 
 import numpy as np
 import pytest
+from sklearn.preprocessing import StandardScaler
 
 from nsbi.datasets.balanced import BalancedDataModule, BalancedDataset
-from sklearn.preprocessing import StandardScaler
 
 N_EVENTS = 160
 N_FEATURES = 2
@@ -20,8 +20,7 @@ def _split_counts(split):
     """Per-hypothesis event counts for a split spec, in (train, val, wi_fit, test) order."""
     total = sum(split.values())
     counts = [
-        N_EVENTS * split[k] / total
-        for k in ("train_size", "val_size", "wi_fit_size", "test_size")
+        N_EVENTS * split[k] / total for k in ("train_size", "val_size", "wi_fit_size", "test_size")
     ]
     assert all(c == int(c) for c in counts), "split fractions must divide N_EVENTS evenly"
     return tuple(int(c) for c in counts)
@@ -92,7 +91,7 @@ def test_split_sizes_are_relative_fractions(tmp_path):
     dm_ratio = _make_datamodule(tmp_path, train_size=2, val_size=1, test_size=1)
     X, w = _make_events()
 
-    for part_frac, part_ratio in zip(dm_frac._split(X, w), dm_ratio._split(X, w)):
+    for part_frac, part_ratio in zip(dm_frac._split(X, w), dm_ratio._split(X, w), strict=True):
         if part_frac is None:
             assert part_ratio is None
             continue

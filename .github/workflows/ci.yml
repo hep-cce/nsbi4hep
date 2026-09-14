@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  # The Makefile targets use `uv run`, which would otherwise re-sync the environment
+  UV_NO_SYNC: "1"
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      - name: Install dev tools only
+        run: uv sync --locked --only-group dev
+
+      - name: Format check
+        run: make format-check
+
+      - name: Lint
+        run: make lint RUFF_CHECK_ARGS=--output-format=github
+
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: astral-sh/setup-uv@v7
+        with:
+          # The minimum supported version (requires-python), where newer syntax would break.
+          python-version: "3.11"
+          enable-cache: true
+          # Only a lockfile change starts a new cache; pyproject.toml tool-config edits don't.
+          cache-dependency-glob: "uv.lock"
+          # The default `uv cache prune --ci` drops downloaded wheels
+          prune-cache: false
+
+      - name: Install dependencies
+        run: uv sync --locked --group dev
+
+      - name: Unit tests
+        run: make tests
