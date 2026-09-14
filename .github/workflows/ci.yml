@@ -34,7 +34,7 @@ jobs:
         run: make format-check
 
       - name: Lint
-        run: make lint
+        run: make lint RUFF_CHECK_ARGS=--output-format=github
 
   tests:
     runs-on: ubuntu-latest

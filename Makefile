@@ -9,11 +9,14 @@ format:
 
 .PHONY: format-check
 format-check:
-	uv run ruff format --check
+	uv run ruff format --check --diff
+
+# Extra `ruff check` flags, e.g. `make lint RUFF_CHECK_ARGS=--output-format=github` in CI
+RUFF_CHECK_ARGS ?=
 
 .PHONY: lint
 lint:
-	uv run ruff check
+	uv run ruff check $(RUFF_CHECK_ARGS)
 
 .PHONY: mypy
 mypy:
