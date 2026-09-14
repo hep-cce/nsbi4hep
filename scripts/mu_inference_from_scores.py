@@ -147,29 +147,57 @@ def scan_adjustment(log_likelihood, w, cov_t, dtype, spec: str) -> None:
 
 def parse_args() -> argparse.Namespace:
     """Parse the score files, fitted weights, and physics inputs for the mu scan."""
-    p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    p = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     # Precomputed scores (stage: predict) -- one file per network, same observed events.
-    p.add_argument("--ensemble-scores", required=True, help="predict output with score_0..score_{M-1}")
+    p.add_argument(
+        "--ensemble-scores", required=True, help="predict output with score_0..score_{M-1}"
+    )
     p.add_argument("--sbi-scores", required=True, help="predict output for the SBI/bkg net (score)")
     # Framework fit artifact (do_ensemble_fit).
-    p.add_argument("--weights", required=True, help="weights.pkl from do_ensemble_fit (w, cov, eps, size)")
+    p.add_argument(
+        "--weights", required=True, help="weights.pkl from do_ensemble_fit (w, cov, eps, size)"
+    )
     # Physics data.
     p.add_argument("--xs-json", required=True, help="cross-section JSON (keys sig/int/sbi/bkg)")
-    p.add_argument("--n-column", default="weight", help="column holding the per-row event count/weight")
+    p.add_argument(
+        "--n-column", default="weight", help="column holding the per-row event count/weight"
+    )
     p.add_argument("--lumi", type=float, default=300.0, help="integrated luminosity [1/fb]")
     p.add_argument("--mu-max", type=float, default=4.0, help="upper edge of the mu scan grid")
-    p.add_argument("--mu-points", type=int, default=401, help="number of grid points in the mu scan")
+    p.add_argument(
+        "--mu-points", type=int, default=401, help="number of grid points in the mu scan"
+    )
     p.add_argument("--out", default="mu_interval_from_scores.png", help="output plot path")
-    p.add_argument("--fixed-mask", action=argparse.BooleanOptionalAction, default=True,
-                   help="exclude negative-density events once, for all mu, instead of letting "
-                        "nansum drop a different set at each mu (default: on)")
-    p.add_argument("--mask-mu-range", default="0,1", metavar="LO,HI",
-                   help="mu range the fixed mask keeps pole-free (default 0,1)")
+    p.add_argument(
+        "--fixed-mask",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="exclude negative-density events once, for all mu, instead of letting "
+        "nansum drop a different set at each mu (default: on)",
+    )
+    p.add_argument(
+        "--mask-mu-range",
+        default="0,1",
+        metavar="LO,HI",
+        help="mu range the fixed mask keeps pole-free (default 0,1)",
+    )
     # The adjustment is evaluated at a single mu and is sensitive to it.
-    p.add_argument("--mu-hat", type=float, default=None,
-                   help="evaluate the adjustment here instead of at the refined MLE")
-    p.add_argument("--scan-adjustment", nargs="?", const="0.20,0.35,31", default=None,
-                   metavar="LO,HI,N", help="tabulate the adjustment across a mu range")
+    p.add_argument(
+        "--mu-hat",
+        type=float,
+        default=None,
+        help="evaluate the adjustment here instead of at the refined MLE",
+    )
+    p.add_argument(
+        "--scan-adjustment",
+        nargs="?",
+        const="0.20,0.35,31",
+        default=None,
+        metavar="LO,HI,N",
+        help="tabulate the adjustment across a mu range",
+    )
     return p.parse_args()
 
 
@@ -184,7 +212,8 @@ def load_member_scores(path: str, size: int) -> tuple[pd.DataFrame, torch.Tensor
     missing = [c for c in columns if c not in df.columns]
     if missing:
         raise KeyError(
-            f"{path} is missing member column(s) {missing}. weights.pkl was fit for {size} members; "
+            f"{path} is missing member column(s) {missing}. "
+            f"weights.pkl was fit for {size} members; "
             "was this file written by a predict run over the same ensemble?"
         )
     # (N, M) as stored -> (M, N), the orientation the fit and the loss work in.
@@ -209,8 +238,8 @@ def check_aligned(ens: pd.DataFrame, sbi: pd.DataFrame, n_column: str) -> None:
     """
     if len(ens) != len(sbi):
         raise ValueError(
-            f"Score files have different row counts ({len(ens)} vs {len(sbi)}); they must be predict "
-            "outputs over the same observed-events file."
+            f"Score files have different row counts ({len(ens)} vs {len(sbi)}); "
+            "they must be predict outputs over the same observed-events file."
         )
     if n_column in ens.columns and n_column in sbi.columns:
         if not np.allclose(ens[n_column].to_numpy(), sbi[n_column].to_numpy()):
@@ -267,15 +296,16 @@ def main() -> None:
     size = wf["size"]
 
     # --- Precomputed scores ---------------------------------------------------------------------
-    ens_df, s = load_member_scores(args.ensemble_scores, size)   # (M, N_obs)
-    sbi_df, s_sbi = load_single_scores(args.sbi_scores)          # (N_obs,)
+    ens_df, s = load_member_scores(args.ensemble_scores, size)  # (M, N_obs)
+    sbi_df, s_sbi = load_single_scores(args.sbi_scores)  # (N_obs,)
     check_aligned(ens_df, sbi_df, args.n_column)
 
     if args.n_column not in ens_df.columns:
         raise KeyError(
-            f"{args.ensemble_scores} has no '{args.n_column}' column to use as the per-event count. "
-            "Point predict's loader at the count column (weight_column: 'n'), use "
-            "weight_column: null for unit-weight real data, or pass --n-column."
+            f"{args.ensemble_scores} has no '{args.n_column}' column "
+            "to use as the per-event count. Point predict's loader at the count column "
+            "(weight_column: 'n'), use weight_column: null for unit-weight real data, "
+            "or pass --n-column."
         )
     n_obs = torch.tensor(ens_df[args.n_column].to_numpy(), dtype=torch.float32)
 
@@ -292,7 +322,7 @@ def main() -> None:
     # --- Ensembled log r_S ------------------------------------------------------------------------
     # The wifi combination happens here rather than at predict time: the score files hold each
     # member's raw output, so a re-fit changes only w and eps below, not the scored events.
-    log_r_members = torch.log(s / (1 - s + eps))                   # (M, N_obs)
+    log_r_members = torch.log(s / (1 - s + eps))  # (M, N_obs)
     r_S = torch.exp(w_fw[:-1] @ log_r_members + w_fw[-1])
     r_sbi = s_sbi / (1 - s_sbi)
 
@@ -342,8 +372,10 @@ def main() -> None:
     # over (mu, w) only -- log_r_members is a constant -- which is why no network is needed here.
     cov = wf.get("cov")
     if cov is None:
-        print("weights.pkl has no 'cov'; re-run the fit to enable the uncertainty adjustment. "
-              "Only the before-adjustment plot was produced.")
+        print(
+            "weights.pkl has no 'cov'; re-run the fit to enable the uncertainty adjustment. "
+            "Only the before-adjustment plot was produced."
+        )
         return
 
     # C comes out of the fit in float64 (weight_covariance computes the V U V sandwich in double

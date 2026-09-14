@@ -3,8 +3,8 @@
 Based on https://github.com/ml4fp/2025-lbnl/blob/main/sessions/day2/ensembling-tutorial/ensembling.ipynb
 
 This is the second phase of wifi ensembling (arXiv:2506.00113), run after the members are
-trained by ``main_ensemble_function`` (``do_ensemble_train: true``). It combines the M trained members
-into a single log-ratio estimator
+trained by ``main_ensemble_function`` (``do_ensemble_train: true``). It combines the M trained
+members into a single log-ratio estimator
 
     log r_S(x) = sum_i w_i f_i(x) + w_const,
 
@@ -485,7 +485,9 @@ def main_ensemble_fit(cfg: DictConfig) -> None:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     ensemble_dir = resolve_ensemble_dir(ensemble_cfg)
-    log.info("Fitting wifi weights for {} members under {} (device: {})", size, ensemble_dir, device)
+    log.info(
+        "Fitting wifi weights for {} members under {} (device: {})", size, ensemble_dir, device
+    )
 
     # Load the shared scaler and the held-out wi_fit split reserved in training. Members were
     # trained on scaler-transformed features, so the wi_fit features must be transformed too.

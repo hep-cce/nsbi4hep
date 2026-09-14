@@ -70,6 +70,8 @@ addopts = [
 [tool.ruff]
 line-length = 100
 exclude = ["*ipynb"]
+extend-exclude = ["src/nsbi/examples"]
+force-exclude = true
 
 [tool.ruff.lint]
 select = [
@@ -84,7 +86,6 @@ select = [
 isort = { combine-as-imports = true, known-first-party = ["agents"] }
 
 [tool.ruff.lint.per-file-ignores]
-"examples/**/*.py" = ["E501"]
 "__init__.py" = ["F401"]
 
 [tool.ruff.lint.pydocstyle]

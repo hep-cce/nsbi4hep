@@ -20,7 +20,7 @@ lint:
 
 .PHONY: mypy
 mypy:
-	uv run mypy . --exclude site
+	uv run mypy . --exclude 'site|src/nsbi/examples'
 
 .PHONY: tests
 tests:

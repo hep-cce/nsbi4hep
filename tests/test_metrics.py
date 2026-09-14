@@ -27,7 +27,6 @@ def test_accepts_tensor_kin():
     assert "obs_0_chi2" in metric(kin, _w(1.0, 1.0), _w(1.0, 1.0), _w(1.0, 1.0))
 
 
-
 def test_chi2_zero_for_perfect_closure():
     kin = np.array([[0.5], [1.5]])
     w = _w(1.0, 2.0)

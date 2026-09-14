@@ -1,7 +1,7 @@
 import pytest
+from ray.tune.search.sample import Categorical, Float, Integer
 
 from nsbi.utils.ray_utils import _try_num, parse_dist
-from ray.tune.search.sample import Categorical, Float, Integer
 
 
 def test_try_num_int():
