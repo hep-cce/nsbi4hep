@@ -1,6 +1,7 @@
 import lightning as L
-import nsbi.tools.metrics as tools
 import torch
+
+import nsbi.tools.metrics as tools
 
 
 class monitored_model(L.LightningModule):

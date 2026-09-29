@@ -55,9 +55,8 @@ from typing import TYPE_CHECKING
 
 import hydra
 import lightning as L
-from omegaconf import DictConfig
-
 from lightning.pytorch.callbacks import Callback
+from omegaconf import DictConfig
 
 if TYPE_CHECKING:
     from lightning.pytorch import Trainer
@@ -87,8 +86,7 @@ def _build_ray_strategy(strategy_name: str):
     }
     if strategy_name not in factories:
         raise ValueError(
-            f"Unknown distributed strategy '{strategy_name}'. "
-            f"Choose from: {list(factories)}"
+            f"Unknown distributed strategy '{strategy_name}'. Choose from: {list(factories)}"
         )
     return factories[strategy_name]()
 
@@ -180,7 +178,7 @@ def _alias_new_output_param_columns(prefix: str = "train_loop_config/") -> None:
 
     def _table(trials, param_keys, metric_keys, *args, **kwargs):
         short_keys = [k[len(prefix) :] if k.startswith(prefix) else k for k in param_keys]
-        rev = dict(zip(short_keys, param_keys))
+        rev = dict(zip(short_keys, param_keys, strict=True))
 
         def _lookup(flat_key, config, *a, **k):
             return orig_lookup(rev.get(flat_key, flat_key), config, *a, **k)

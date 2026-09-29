@@ -32,9 +32,8 @@ from typing import TYPE_CHECKING
 
 import hydra
 import lightning as L
-from omegaconf import DictConfig
-
 from lightning.pytorch.callbacks import Callback
+from omegaconf import DictConfig
 
 if TYPE_CHECKING:
     from lightning.pytorch import Trainer

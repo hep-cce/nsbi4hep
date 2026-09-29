@@ -212,12 +212,10 @@ def main_function(cfg: DictConfig) -> None:
     log.info("Instantiating trainer <{}>", cfg.trainer._target_)
     trainer: Trainer = hydra.utils.instantiate(cfg.trainer, callbacks=callbacks, logger=loggers)
 
-    if (
-        cfg.get("suppress_accumulate_grad_warning", False)
-        and isinstance(trainer.strategy, L.pytorch.strategies.DDPStrategy)
+    if cfg.get("suppress_accumulate_grad_warning", False) and isinstance(
+        trainer.strategy, L.pytorch.strategies.DDPStrategy
     ):
         torch.autograd.graph.set_warn_on_accumulate_grad_stream_mismatch(False)
-
 
     object_dict = {
         "cfg": cfg,

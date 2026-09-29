@@ -17,7 +17,6 @@ from omegaconf import DictConfig
 
 from nsbi.models.ensemble import MemberEnsemble
 
-
 # Hyperparameters that do not describe the architecture, so a config/checkpoint disagreement is
 # harmless at inference and not worth warning about: the optimizer is never constructed.
 _NON_ARCHITECTURAL_HPARAMS = {"learning_rate"}

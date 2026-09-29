@@ -94,7 +94,8 @@ class BalancedDataModule(L.LightningDataModule):
         if self.wi_fit_size > 0:
             # Peel off test, leaving wi_fit as the leftover complement (carved last).
             X_test, X_wi_fit, w_test, w_wi_fit = train_test_split(
-                X_rest, w_rest,
+                X_rest,
+                w_rest,
                 train_size=self.test_size / (self.test_size + self.wi_fit_size),
                 shuffle=False,
             )
@@ -116,8 +117,12 @@ class BalancedDataModule(L.LightningDataModule):
 
     def prepare_data(self):
         self._require_data_dir()
-        X_numerator, w_numerator = self.loader(self.numerator_file, sample_size=self.sample_size, random_state=self.random_state)
-        X_denominator, w_denominator = self.loader(self.denominator_file, sample_size=self.sample_size, random_state=self.random_state)
+        X_numerator, w_numerator = self.loader(
+            self.numerator_file, sample_size=self.sample_size, random_state=self.random_state
+        )
+        X_denominator, w_denominator = self.loader(
+            self.denominator_file, sample_size=self.sample_size, random_state=self.random_state
+        )
 
         (
             (X_numerator_train, w_numerator_train),
@@ -187,12 +192,16 @@ class BalancedDataModule(L.LightningDataModule):
                 # shared across ensemble members) so each member sees a different training draw,
                 # per the wifi (w_i f_i) ensembling procedure. Seeded by random_state.
                 X_numerator_train, w_numerator_train = resample(
-                    X_numerator_train, w_numerator_train,
-                    replace=True, random_state=self.random_state,
+                    X_numerator_train,
+                    w_numerator_train,
+                    replace=True,
+                    random_state=self.random_state,
                 )
                 X_denominator_train, w_denominator_train = resample(
-                    X_denominator_train, w_denominator_train,
-                    replace=True, random_state=self.random_state,
+                    X_denominator_train,
+                    w_denominator_train,
+                    replace=True,
+                    random_state=self.random_state,
                 )
 
             self.training_data = BalancedDataset(
@@ -250,13 +259,19 @@ class BalancedDataModule(L.LightningDataModule):
                 self.predict_data.append(PredictDataset(X, w, scaler=self.scaler, path=path))
 
     def train_dataloader(self):
-        return DataLoader(self.training_data, batch_size=self.batch_size, num_workers=self.num_workers)
+        return DataLoader(
+            self.training_data, batch_size=self.batch_size, num_workers=self.num_workers
+        )
 
     def val_dataloader(self):
-        return DataLoader(self.validation_data, batch_size=self.batch_size, num_workers=self.num_workers)
+        return DataLoader(
+            self.validation_data, batch_size=self.batch_size, num_workers=self.num_workers
+        )
 
     def test_dataloader(self):
-        return DataLoader(self.testing_data, batch_size=self.batch_size, num_workers=self.num_workers)
+        return DataLoader(
+            self.testing_data, batch_size=self.batch_size, num_workers=self.num_workers
+        )
 
     def predict_dataloader(self):
         """One sequential loader per predict file; ``ScoreWriter`` writes one score file each.

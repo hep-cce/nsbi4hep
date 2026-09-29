@@ -1,19 +1,19 @@
 import pytest
 import torch
 import torch.nn.functional as F
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 from nsbi.models.carl import CARL
-from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 N_FEATURES = 3
 
 
-def _make_model(device=torch.device("cpu")):
+def _make_model(device="cpu"):
     torch.manual_seed(0)
     return CARL(n_features=N_FEATURES, n_layers=2, n_nodes=8, learning_rate=1e-3).to(device)
 
 
-def _make_batch(device=torch.device("cpu"), n=20):
+def _make_batch(device="cpu", n=20):
     torch.manual_seed(1)
     x = torch.randn(n, N_FEATURES, device=device)
     y = torch.randint(0, 2, (n,), device=device).float()
