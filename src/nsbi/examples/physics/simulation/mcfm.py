@@ -208,6 +208,64 @@ def load_arrays(
     return X, w
 
 
+def load_arrays_ordered(
+    file_path: str,
+    *,
+    features: list,
+    cross_section: float | None = None,
+    n_rows: int | None = None,
+    ignore_negative_weights: bool = True,
+    sample_size: int | None = None,
+    random_state: int | None = None,
+    momentum_columns: list | None = None,
+    component_columns: list | None = None,
+    weight_column: str | None = csv_weight,
+):
+    """Load an MCFM CSV in file order -- the loader for ``datamodule.predict_loader``.
+
+    The predict stage joins score row k to input row k, so its loader has to return rows as the
+    file has them. `load_arrays` cannot: its ``sample_size`` draws at random and rescales the
+    weights it keeps, and both break that join. This takes the same arguments and differs only in
+    how ``sample_size`` selects -- the first N rows rather than N random ones -- so the weights
+    are the file's own.
+
+    ``random_state`` is accepted because the datamodule always passes it, and ignored because
+    nothing here is random.
+
+    Args:
+        file_path: Path to the CSV file or directory of CSV files.
+        features: Column names to use as the feature matrix X.
+        cross_section: If provided, normalize weights to this value in fb.
+        n_rows: Number of rows to read. If None, all rows are read. Applies per file when
+            `file_path` is a directory.
+        ignore_negative_weights: Zero out numerically negative weights.
+        sample_size: Number of events to keep, counted from the top. If None, all events are used.
+            Combines with `n_rows`: read the first `n_rows`, keep the first `sample_size`.
+        random_state: Ignored; see above.
+        momentum_columns: 4-momentum columns to read; [] for a file without them.
+        component_columns: Matrix-element columns to read; [] for a file without them.
+        weight_column: Column to read event weights from; None for unit weights.
+
+    Returns:
+        Tuple of (X, w) where X has shape (n_events, n_features) and w has shape (n_events,).
+    """
+    process = from_csv(
+        file_path,
+        cross_section=cross_section,
+        n_rows=n_rows,
+        kinematics=features,
+        ignore_negative_weights=ignore_negative_weights,
+        momentum_columns=momentum_columns,
+        component_columns=component_columns,
+        weight_column=weight_column,
+    )
+    X = process.kinematics[features].to_numpy()
+    w = process.weights.to_numpy()
+    if sample_size is not None:
+        X, w = X[:sample_size], w[:sample_size]
+    return X, w
+
+
 def check_consistency(events):
     # g1_px, g1_py = events.kinematics["p1_px"], events.kinematics["p1_py"]
     # g2_px, g2_py = events.kinematics["p2_px"], events.kinematics["p2_py"]
